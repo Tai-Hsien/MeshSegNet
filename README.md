@@ -37,9 +37,9 @@ previously. We use 24 scans as the training set, 6 scans as the validation set,
 and keep 6 scans as the test set. For training and validation sets, each scan
 (e.g., Sample\_01\_d.vtp) and its flipped (e.g., Sample\_01001\_d.vtp) are augmented
 20 times. All generated augmented intraoral scans (i.e., training and validation
-sets) will be saved in <pre><code>./augmentation_vtk_data</pre></code> folder.
+sets) will be saved in “*./augmentation\_vtk\_data*” folder.
 
-In <pre><code>step1_augmentation.py</pre></code>, the variable <pre><code>vtk_path</pre></code> needs to define, which is
+In *step1\_augmentation.py*, the variable *“vtk\_path”* needs to define, which is
 the folder path of intraoral scans. Then you can implement this step by the
 following command.
 
@@ -48,9 +48,9 @@ following command.
 Step 2 Generate training and validation lists
 ---------------------------------------------
 
-In <pre><code>stpe2_get_list.py</pre></code>, please define variables <pre><code>num_augmentation</pre></code> and
-<pre><code>num_samples</pre></code> according to <pre><code>step1_augmentation.py</pre></code>. Since we use 24 of 30
-scans as training data, the <pre><code>train_size</pre></code> is set to <pre><code>0.8</pre></code>. You can implement this
+In *stpe2\_get\_list.py*, please define variables “*num\_augmentation*” and
+“*num\_samples*” according to *step1\_augmentation.py.* Since we use 24 of 30
+scans as training data, the “*train\_size*” is set to 0.8. You can implement this
 step by the following command.
 
 <pre><code>python step2_get_list.py</pre></code>
@@ -61,7 +61,7 @@ same folder.
 Step 3 Model training
 ---------------------
 
-In <pre><code>step3_training.py</pre></code>, please define variable “model\_name” used for
+In *step3\_training.py*, please define variable “model\_name” used for
 [visdom](https://github.com/facebookresearch/visdom) environment and output
 filename. If your system doesn’t have
 [visdom](https://github.com/facebookresearch/visdom), please set variable
