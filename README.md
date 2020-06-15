@@ -145,7 +145,7 @@ year = {2020}
 }
 
 \@inproceedings{Lian2019,
-address = {Cham},<br />
+address = {Cham},  
 author = {Lian, Chunfeng and Wang, Li and Wu, Tai-Hsien and Liu, Mingxia and
 Dur{\\'{a}}n, Francisca and Ko, Ching-Chang and Shen, Dinggang},
 booktitle = {MICCAI 2019},
