@@ -43,7 +43,7 @@ In *step1\_augmentation.py*, the variable *“vtk\_path”* needs to define, whi
 the folder path of intraoral scans. Then you can implement this step by the
 following command.
 
-<span style="background-color: #FCDA5D">python step1\_augmentation.py</span>
+<pre><code>python step1\_augmentation.py</pre></code>
 
 Step 2 Generate training and validation lists
 ---------------------------------------------
