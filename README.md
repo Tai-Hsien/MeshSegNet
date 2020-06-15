@@ -81,6 +81,8 @@ You can start to train a **MeshSegNet** model by the following command.
 
 <pre><code>python step3_training.py</pre></code>
 
+We provide a trained model and its training curves in “*./models*” folder.
+
 Optional:
 
 If you would like to continue to train your previous model, you can modify
