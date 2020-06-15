@@ -5,7 +5,7 @@ Created by [Chunfeng Lian](https://github.com/chunfenglian/), Li Wang,
 [Tai-Hsien Wu](https://github.com/Tai-Hsien/Mesh_Label_Fixer.git), Fan Wang,
 Pew-Thian Yap, Ching-Chang Ko, and Dinggang Shen
 
-![](media/8fdc1a05525c089cedc0bd55299f254f.png)
+![](meshsegnet_architecture.png)
 
 Introduction
 ------------
