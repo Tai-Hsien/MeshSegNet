@@ -43,7 +43,7 @@ In *step1\_augmentation.py*, the variable *“vtk\_path”* needs to define, whi
 the folder path of intraoral scans. Then you can implement this step by the
 following command.
 
-<pre><code>python step1\_augmentation.py</pre></code>
+<pre><code>python step1_augmentation.py</pre></code>
 
 Step 2 Generate training and validation lists
 ---------------------------------------------
@@ -53,7 +53,7 @@ In *stpe2\_get\_list.py*, please define variables “*num\_augmentation*” and
 scans as training data, the “*train\_size*” is set to 0.8. You can implement this
 step by the following command.
 
-python step2\_get\_list.py
+<pre><code>python step2_get_list.py</pre></code>
 
 Then, two CSV files (i.e., train\_list.csv and val\_list.csv) are generated in the
 same folder.
@@ -79,24 +79,24 @@ A<sub>L</sub>, refer to the original paper for detail) are carried out by
 
 You can start to train a **MeshSegNet** model by the following command.
 
-python step3\_training.py
+<pre><code>python step3_training.py</pre></code>
 
 Optional:
 
 If you would like to continue to train your previous model, you can modify
 *step\_3\_1\_continous\_training.py* accordingly and execute it by
 
-python step3\_1\_continous\_training.py
+<pre><code>python step3_1_continous_training.py</pre></code>
 
 Step 4 Model testing
 --------------------
 
 Once you obtain a well-trained model, you can use *step4\_test.py* to test the
 model using your test dataset. Please define the path of the test dataset
-(variable “*mesh\_path*”) and filename according to your data. To implement, by
+(variable “*mesh\_path*”) and filename according to your data. To implement this step, by
 entering
 
-python step4\_test.py
+<pre><code>python step4_test.py</pre></code>
 
 The deployed results will be saved in “*./test*” and metrics (DSC, SEN, PPV)
 will be displayed.
@@ -109,9 +109,9 @@ path and filename accordingly, it can predict the tooth labeling on unseen
 intraoral scans. The deployed results will be saved in “*./test*” as well. No
 metrics will be computed because the unseen scans do not have ground truth.
 
-To implement, by entering
+To implement this step, by entering
 
-python step5\_predict.py
+<pre><code>python step5_predict.py</pre></code>
 
 Post-Processing
 ---------------
