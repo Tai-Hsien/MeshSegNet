@@ -145,7 +145,7 @@ year = {2020}
 }
 
 \@inproceedings{Lian2019,
-address = {Cham},
+address = {Cham},<br />
 author = {Lian, Chunfeng and Wang, Li and Wu, Tai-Hsien and Liu, Mingxia and
 Dur{\\'{a}}n, Francisca and Ko, Ching-Chang and Shen, Dinggang},
 booktitle = {MICCAI 2019},
@@ -160,5 +160,4 @@ title = {{MeshSNet: Deep Multi-scale Mesh Feature Learning for End-to-End Tooth
 Labeling on 3D Dental Surfaces BT - Medical Image Computing and Computer
 Assisted Intervention – MICCAI 2019}},
 year = {2019}
-
 }
