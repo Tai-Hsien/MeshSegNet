@@ -14,7 +14,7 @@ This work is the pytorch implementation of **MeshSegNet**, which has been
 published in *IEEE Transactions on Medical Imaging*
 (<https://ieeexplore.ieee.org/abstract/document/8984309>) and *MICCAI 2019*
 (<https://link.springer.com/chapter/10.1007/978-3-030-32226-7_93>). MeshSegNet
-is used to precisely labeling teeth on digitalized 3D dental surface models
+is used to precisely label teeth on digitalized 3D dental surface models
 acquired by Intraoral scanners (IOSs).
 
 In this repository, there are three main python scripts (steps 1 to 3) and three
