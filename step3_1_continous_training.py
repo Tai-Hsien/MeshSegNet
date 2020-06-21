@@ -6,7 +6,7 @@ from torch.optim.lr_scheduler import StepLR
 import torch.optim as optim
 import torch.nn as nn
 from Mesh_dataset import *
-from pointnet import *
+from meshsegnet import *
 from losses_and_metrics_for_mesh import *
 import utils
 import pandas as pd
@@ -14,7 +14,7 @@ import pandas as pd
 if __name__ == '__main__':
     
     torch.cuda.set_device(utils.get_avail_gpu()) # assign which gpu will be used (only linux works)
-    use_visdom = True
+    use_visdom = False
     
     train_list = './train_list_1.csv'
     val_list = './val_list_1.csv'
@@ -23,15 +23,15 @@ if __name__ == '__main__':
     previous_check_point_name = 'latest_checkpoint.tar'
     
     model_path = './models/'
-    model_name = 'Mesh_Segementation_PointNet_15_classes_72samples' #remember to include the project title (e.g., ALV)
+    model_name = 'Mesh_Segementation_MeshSegNet_15_classes_72samples' #remember to include the project title (e.g., ALV)
     checkpoint_name = 'latest_checkpoint_cont.tar'
     
     num_classes = 15
     num_channels = 15 #number of features
-    num_epochs = 200
-    num_workers = 4
-    train_batch_size = 20
-    val_batch_size = 20
+    num_epochs = 300
+    num_workers = 2
+    train_batch_size = 12
+    val_batch_size = 12
     num_batches_to_print = 20
     
     if use_visdom:
@@ -46,10 +46,10 @@ if __name__ == '__main__':
     # set dataset
     training_dataset = Mesh_Dataset(data_list_path=train_list,
                                     num_classes=num_classes,
-                                    patch_size=9000)
+                                    patch_size=6000)
     val_dataset = Mesh_Dataset(data_list_path=val_list,
                                num_classes=num_classes,
-                               patch_size=9000)
+                               patch_size=6000)
     
     train_loader = DataLoader(dataset=training_dataset,
                               batch_size=train_batch_size,
@@ -63,8 +63,8 @@ if __name__ == '__main__':
     
     # set model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = PointNet_Seg(num_classes=num_classes, channel=num_channels).to(device, dtype=torch.float)
-    opt = optim.Adam(model.parameters(), lr=0.0001, amsgrad=True)
+    model = MeshSegNet(num_classes=num_classes, num_channels=num_channels, with_dropout=True, dropout_p=0.5).to(device, dtype=torch.float)
+    opt = optim.Adam(model.parameters(), amsgrad=True)
     #scheduler = StepLR(opt, step_size=2, gamma=0.8)
     
     # re-load
@@ -119,15 +119,15 @@ if __name__ == '__main__':
             # send mini-batch to device            
             inputs = batched_sample['cells'].to(device, dtype=torch.float)
             labels = batched_sample['labels'].to(device, dtype=torch.long)
+            A_S = batched_sample['A_S'].to(device, dtype=torch.float)
+            A_L = batched_sample['A_L'].to(device, dtype=torch.float)
             one_hot_labels = nn.functional.one_hot(labels[:, 0, :], num_classes=num_classes)
             
             # zero the parameter gradients
             opt.zero_grad()
             
             # forward + backward + optimize
-            outputs = model(inputs)
-#            print(outputs.shape)
-#            print(one_hot_labels.shape)
+            outputs = model(inputs, A_S, A_L)
             loss = Generalized_Dice_Loss(outputs, one_hot_labels, class_weights)
             dsc = weighting_DSC(outputs, one_hot_labels, class_weights)
             sen = weighting_SEN(outputs, one_hot_labels, class_weights)
@@ -184,13 +184,15 @@ if __name__ == '__main__':
                 # send mini-batch to device
                 inputs = batched_val_sample['cells'].to(device, dtype=torch.float)
                 labels = batched_val_sample['labels'].to(device, dtype=torch.long)
+                A_S = batched_val_sample['A_S'].to(device, dtype=torch.float)
+                A_L = batched_val_sample['A_L'].to(device, dtype=torch.float)
                 one_hot_labels = nn.functional.one_hot(labels[:, 0, :], num_classes=num_classes)
                 
-                outputs = model(inputs).detach()
-                val_loss = Generalized_Dice_Loss(outputs, one_hot_labels, class_weights).detach()
-                val_dsc = weighting_DSC(outputs, one_hot_labels, class_weights).detach()
-                val_sen = weighting_SEN(outputs, one_hot_labels, class_weights).detach()
-                val_ppv = weighting_PPV(outputs, one_hot_labels, class_weights).detach()
+                outputs = model(inputs, A_S, A_L)
+                val_loss = Generalized_Dice_Loss(outputs, one_hot_labels, class_weights)
+                val_dsc = weighting_DSC(outputs, one_hot_labels, class_weights)
+                val_sen = weighting_SEN(outputs, one_hot_labels, class_weights)
+                val_ppv = weighting_PPV(outputs, one_hot_labels, class_weights)
                 
                 running_val_loss += val_loss.item()
                 running_val_mdsc += val_dsc.item()
