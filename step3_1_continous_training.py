@@ -87,8 +87,8 @@ if __name__ == '__main__':
         for i_epoch in range(len(losses)):
             plotter.plot('loss', 'train', 'Loss', i_epoch+1, losses[i_epoch])
             plotter.plot('DSC', 'train', 'DSC', i_epoch+1, mdsc[i_epoch])
-            plotter.plot('SEN', 'train', 'SEN', i_epoch+1, mdsc[i_epoch])
-            plotter.plot('PPV', 'train', 'PPV', i_epoch+1, mdsc[i_epoch])
+            plotter.plot('SEN', 'train', 'SEN', i_epoch+1, msen[i_epoch])
+            plotter.plot('PPV', 'train', 'PPV', i_epoch+1, mppv[i_epoch])
             plotter.plot('loss', 'val', 'Loss', i_epoch+1, val_losses[i_epoch])
             plotter.plot('DSC', 'val', 'DSC', i_epoch+1, val_mdsc[i_epoch])
             plotter.plot('SEN', 'val', 'SEN', i_epoch+1, val_msen[i_epoch])
