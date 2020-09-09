@@ -330,17 +330,9 @@ class Easy_Mesh(object):
             self.cell_ids
             self.points
         '''
-        self.points = self.cells.reshape([int(self.cells.shape[0]*3), 3])
-        self.points = np.unique(self.points, axis=0)
-        self.cell_ids = np.zeros([self.cells.shape[0], 3], dtype='int64')
-
-        for i_count in range(self.cells.shape[0]):
-            counts0 = np.bincount(np.where(self.points==self.cells[i_count, 0:3])[0])
-            counts1 = np.bincount(np.where(self.points==self.cells[i_count, 3:6])[0])
-            counts2 = np.bincount(np.where(self.points==self.cells[i_count, 6:9])[0])
-            self.cell_ids[i_count, 0] = np.argmax(counts0)
-            self.cell_ids[i_count, 1] = np.argmax(counts1)
-            self.cell_ids[i_count, 2] = np.argmax(counts2)
+        rdt_points = self.cells.reshape([int(self.cells.shape[0]*3), 3])
+        self.points, idx = np.unique(rdt_points, return_inverse=True, axis=0)
+        self.cell_ids = idx.reshape([-1, 3])
 
         if self.warning:
             print('Warning! self.cell_attributes are reset and need to be updated!')
