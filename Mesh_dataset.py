@@ -2,7 +2,7 @@ from torch.utils.data import Dataset
 import pandas as pd
 import torch
 import numpy as np
-from easy_mesh_vtk import *
+from easy_mesh_vtk.easy_mesh_vtk import *
 from scipy.spatial import distance_matrix
 
 class Mesh_Dataset(Dataset):
