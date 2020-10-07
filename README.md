@@ -2,7 +2,7 @@
 ==============================================================================================================================
 
 Created by [Chunfeng Lian](https://github.com/chunfenglian/), Li Wang,
-[Tai-Hsien Wu](https://github.com/Tai-Hsien/Mesh_Label_Fixer.git), Fan Wang,
+[Tai-Hsien Wu](https://github.com/Tai-Hsien), Fan Wang,
 Pew-Thian Yap, Ching-Chang Ko, and Dinggang Shen
 
 ![](meshsegnet_architecture.png)
@@ -69,7 +69,7 @@ filename. If your system doesn’t have
 molar to second molar (14 teeth) and gingiva. The number of features is 15,
 corresponding to cell vertices (9 elements), cell normal vector (3 elements),
 and the relative position (3 elements). To further augment our dataset, we
-select all tooth cells (i.e., triangle) and randomly select some gingival cells
+select all tooth cells (i.e., triangles) and randomly select some gingival cells
 to form 6,000 cells inputs based on original scans in
 “*./augmentation\_vtk\_data*” during training. To prepare the input features and
 further augmented data as well as computing adjacent matrixes (A<sub>S</sub> and
