@@ -125,6 +125,9 @@ To implement this step, by entering
 
 <pre><code>python step5_predict.py</pre></code>
 
+Note that this step only accepts the downsampled mesh (e.g., number of cells<=10,000). Otherwise most likely you will see insufficient GPU memory error.
+For those models are not dowsampled, please try step6 which incldues downsampling, prediction, refinement, and mapping results back to original resolution.
+
 Step 6 Predict unseen intraoral scans with post-pocessing
 ---------------
 
