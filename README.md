@@ -125,16 +125,21 @@ To implement this step, by entering
 
 <pre><code>python step5_predict.py</pre></code>
 
-Post-Processing
+Step 6 Predict unseen intraoral scans with post-pocessing
 ---------------
 
 Our publication in *IEEE Transactions on Medical Imaging
 (*<https://ieeexplore.ieee.org/abstract/document/8984309>) mentioned the
-multi-label graph-cut method to refine the predicted results. We do not provide
-the related code in this repository. However, we implement this step using the
-MATLAB code [gco-v3.0.zip](http://mouse.cs.uwaterloo.ca/code/gco-v3.0.zip) at
-<https://vision.cs.uwaterloo.ca/code/>. If you need help in this part, please
-feel free to email me (<wu.5084@osu.edu>) or contact me via my github.
+multi-label graph-cut method to refine the predicted results. To do that, by implementing
+<pre><code>python step6_predict_with_post_processing_pygco.py</pre></code>
+or 
+<pre><code>python step6_predict_with_post_processing_gco.py</pre></code>
+
+The first one is to implement multi-label graph cut based on python package [pygco](https://github.com/amueller/gco_python).
+The second one is based on a MATLAB code, tooth_segmentation_refinement_mat.m, in <https://github.com/Tai-Hsien/MeshSegNet/tree/master/gco-v3.0/matlab> and [gco-v3.0.zip](http://mouse.cs.uwaterloo.ca/code/gco-v3.0.zip) 
+<https://vision.cs.uwaterloo.ca/code/> (also provided in this repo).  
+Since the MATLAB gco requires the proper MATLAB environment setup and MATLABEngine API for python, we suggest the first way, which is based on pygco and is more efficent in terms of computing time and memory use. Both of them will generate the same result.
+
 
 Citation
 --------
