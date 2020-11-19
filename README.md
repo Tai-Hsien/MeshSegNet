@@ -5,6 +5,16 @@ Created by [Chunfeng Lian](https://github.com/chunfenglian/), Li Wang,
 [Tai-Hsien Wu](https://github.com/Tai-Hsien), Fan Wang,
 Pew-Thian Yap, Ching-Chang Ko, and Dinggang Shen
 
+Prequisites
+------------
+python 3.7.6
+pytorch 1.6.0
+numpy 1.18.1
+scikit-learn 0.22.1
+visdom 0.1.8.9 (optional; for step3)
+thundersvm (optional; for step6)
+pygco (0.0.1) (optional; for step 6)
+
 ![](meshsegnet_architecture.png)
 
 Introduction
