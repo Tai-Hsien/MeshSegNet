@@ -15,7 +15,7 @@ numpy 1.18.1
 scikit-learn 0.22.1  
 [visdom](https://github.com/facebookresearch/visdom) 0.1.8.9 (optional; for step3)  
 [thundersvm](https://github.com/Xtra-Computing/thundersvm) (optional; for step6)  
-[pygco](https://github.com/amueller/gco_python) (0.0.1) (optional; for step 6)  
+[pygco](https://github.com/amueller/gco_python) (0.0.1) (optional; for step6)  
 
 Introduction
 ------------
