@@ -67,7 +67,7 @@ class Mesh_Dataset(Dataset):
             normals[:,i] = (normals[:,i] - nmeans[i]) / nstds[i]
             
         X = np.column_stack((cells, barycenters, normals))
-        X = (X-np.ones((X.shape[0], 1))*np.mean(X, axis=0)) / (np.ones((X.shape[0], 1))*np.std(X, axis=0))
+        #X = (X-np.ones((X.shape[0], 1))*np.mean(X, axis=0)) / (np.ones((X.shape[0], 1))*np.std(X, axis=0))
         Y = labels
         
         # initialize batch of input and label

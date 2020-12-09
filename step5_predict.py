@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from meshsegnet import *
 import utils
-from easy_mesh_vtk import *
+from easy_mesh_vtk.easy_mesh_vtk import *
 import pandas as pd
 from losses_and_metrics_for_mesh import *
 from scipy.spatial import distance_matrix
@@ -14,10 +14,11 @@ if __name__ == '__main__':
     torch.cuda.set_device(utils.get_avail_gpu()) # assign which gpu will be used (only linux works)
       
     model_path = './models'
-    model_name = 'Mesh_Segementation_MeshSegNet_15_classes_60samples_best.tar'
+    #model_name = 'Mesh_Segementation_MeshSegNet_15_classes_60samples_best.tar'
+    model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.tar'
     
-    mesh_path = ''  # need to define
-    sample_filenames = ['Sample_0101_d.stl'] # need to define
+    mesh_path = 'inputs'  # need to define
+    sample_filenames = ['Example_02.stl'] # need to define
     output_path = './outputs'
     if not os.path.exists(output_path):
         os.mkdir(output_path)
@@ -45,9 +46,13 @@ if __name__ == '__main__':
         for i_sample in sample_filenames:
             
             print('Predicting Sample filename: {}'.format(i_sample))
-            # read image and label (annotation)
+            # pre-processing: downsampling
+            print('\tDownsampling...')
             mesh = Easy_Mesh(os.path.join(mesh_path, i_sample))
-            predicted_labels = np.zeros([mesh.cells.shape[0], 1])
+            target_num = 10000
+            ratio = 1 - target_num/mesh.cells.shape[0] # calculate ratio
+            mesh.mesh_decimation(ratio)
+            predicted_labels = np.zeros([mesh.cells.shape[0], 1], dtype=np.int32)
         
             # move mesh to origin
             cell_centers = (mesh.cells[:, 0:3] + mesh.cells[:, 3:6] + mesh.cells[:, 6:9])/3.0
@@ -81,7 +86,7 @@ if __name__ == '__main__':
                 normals[:,i] = (normals[:,i] - nmeans[i]) / nstds[i]
 
             X = np.column_stack((cells, barycenters, normals))
-            X = (X-np.ones((X.shape[0], 1))*np.mean(X, axis=0)) / (np.ones((X.shape[0], 1))*np.std(X, axis=0))
+            #X = (X-np.ones((X.shape[0], 1))*np.mean(X, axis=0)) / (np.ones((X.shape[0], 1))*np.std(X, axis=0))
 
             # computing A_S and A_L
             A_S = np.zeros([X.shape[0], X.shape[0]], dtype='float32')
@@ -110,6 +115,8 @@ if __name__ == '__main__':
 
             # output predicted labels
             mesh = Easy_Mesh(os.path.join(mesh_path, i_sample))
+            mesh.mesh_decimation(ratio)
+
             mesh2 = Easy_Mesh()
             mesh2.cells = mesh.cells
             mesh2.update_cell_ids_and_points()
