@@ -2,9 +2,9 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
-from meshsegnet import *
+from imeshsegnet import *
 import utils
-from easy_mesh_vtk import *
+import vedo
 import pandas as pd
 from losses_and_metrics_for_mesh import *
 from scipy.spatial import distance_matrix
@@ -13,11 +13,12 @@ if __name__ == '__main__':
     
     torch.cuda.set_device(utils.get_avail_gpu()) # assign which gpu will be used (only linux works)
       
+    i_fold = 1
     model_path = './models'
     model_name = 'Mesh_Segementation_MeshSegNet_15_classes_60samples_best.tar'
     
     mesh_path = '' # need to define
-    test_list = [31, 32, 33, 34, 35, 36]
+    test_list = pd.read_csv('test_list_{}.csv'.format(i_fold))['Test ID'].values
     test_mesh_filename = 'Sample_0{0}_d.vtp'
     test_path = './test'
     if not os.path.exists(test_path):
@@ -28,7 +29,7 @@ if __name__ == '__main__':
           
     # set model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = MeshSegNet(num_classes=num_classes, num_channels=num_channels).to(device, dtype=torch.float)
+    model = iMeshSegNet(num_classes=num_classes, num_channels=num_channels).to(device, dtype=torch.float)
     
     # load trained model
     checkpoint = torch.load(os.path.join(model_path, model_name), map_location='cpu')
@@ -52,25 +53,44 @@ if __name__ == '__main__':
             
             print('Predicting Sample filename: {}'.format(test_mesh_filename.format(i_sample)))
             # read image and label (annotation)
-            mesh = Easy_Mesh(os.path.join(mesh_path, test_mesh_filename.format(i_sample)))
-            labels = mesh.cell_attributes['Label'].astype('int32')
+            mesh = vedo.load(os.path.join(mesh_path, test_mesh_filename.format(i_sample)))
+            labels = mesh.getCellArray('Label').astype('int32').reshape(-1, 1)
             predicted_labels = np.zeros(labels.shape)
         
             # move mesh to origin
-            cell_centers = (mesh.cells[:, 0:3] + mesh.cells[:, 3:6] + mesh.cells[:, 6:9])/3.0
-            mean_cell_centers = np.mean(cell_centers, axis=0)
-            mesh.cells[:, 0:3] -= mean_cell_centers[0:3]
-            mesh.cells[:, 3:6] -= mean_cell_centers[0:3]
-            mesh.cells[:, 6:9] -= mean_cell_centers[0:3]
-            mesh.update_cell_ids_and_points() # update object when change cells
-            mesh.get_cell_normals() # get cell normal
+            cells = np.zeros([mesh.NCells(), 9], dtype='float32')
+            for i in range(len(cells)):
+                cells[i][0], cells[i][1], cells[i][2] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(0)) # don't need to copy
+                cells[i][3], cells[i][4], cells[i][5] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(1)) # don't need to copy
+                cells[i][6], cells[i][7], cells[i][8] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(2)) # don't need to copy
+
+            mean_cell_centers = mesh.centerOfMass()
+            cells[:, 0:3] -= mean_cell_centers[0:3]
+            cells[:, 3:6] -= mean_cell_centers[0:3]
+            cells[:, 6:9] -= mean_cell_centers[0:3]
+
+            # customized normal calculation; the vtk/vedo build-in function will change number of points
+            v1 = np.zeros([mesh.NCells(), 3], dtype='float32')
+            v2 = np.zeros([mesh.NCells(), 3], dtype='float32')
+            v1[:, 0] = cells[:, 0] - cells[:, 3]
+            v1[:, 1] = cells[:, 1] - cells[:, 4]
+            v1[:, 2] = cells[:, 2] - cells[:, 5]
+            v2[:, 0] = cells[:, 3] - cells[:, 6]
+            v2[:, 1] = cells[:, 4] - cells[:, 7]
+            v2[:, 2] = cells[:, 5] - cells[:, 8]
+            mesh_normals = np.cross(v1, v2)
+            mesh_normal_length = np.linalg.norm(mesh_normals, axis=1)
+            mesh_normals[:, 0] /= mesh_normal_length[:]
+            mesh_normals[:, 1] /= mesh_normal_length[:]
+            mesh_normals[:, 2] /= mesh_normal_length[:]
+            mesh.addCellArray(mesh_normals, 'Normal')
 
             # preprae input
-            cells = mesh.cells[:]
-            normals = mesh.cell_attributes['Normal'][:]
-            cell_ids = mesh.cell_ids[:]
-            points = mesh.points[:]
-            barycenters = (cells[:,0:3]+cells[:,3:6]+cells[:,6:9]) / 3
+            points = mesh.points().copy()
+            points[:, 0:3] -= mean_cell_centers[0:3]
+            normals = mesh.getCellArray('Normal').copy() # need to copy, they use the same memory address
+            barycenters = mesh.cellCenters() # don't need to copy
+            barycenters -= mean_cell_centers[0:3]
 
             #normalized data
             maxs = points.max(axis=0)
@@ -84,11 +104,10 @@ if __name__ == '__main__':
                 cells[:, i] = (cells[:, i] - means[i]) / stds[i] #point 1
                 cells[:, i+3] = (cells[:, i+3] - means[i]) / stds[i] #point 2
                 cells[:, i+6] = (cells[:, i+6] - means[i]) / stds[i] #point 3
-                barycenters[:,i] = (barycenters[:,i] - mins[i]) / (maxs[i]-mins[i])
-                normals[:,i] = (normals[:,i] - nmeans[i]) / nstds[i]
+                barycenters[:, i] = (barycenters[:, i] - mins[i]) / (maxs[i]-mins[i])
+                normals[:, i] = (normals[:, i] - nmeans[i]) / nstds[i]
 
             X = np.column_stack((cells, barycenters, normals))
-            #X = (X-np.ones((X.shape[0], 1))*np.mean(X, axis=0)) / (np.ones((X.shape[0], 1))*np.std(X, axis=0))
 
             # computing A_S and A_L
             A_S = np.zeros([X.shape[0], X.shape[0]], dtype='float32')
@@ -99,7 +118,7 @@ if __name__ == '__main__':
 
             A_L[D<0.2] = 1.0
             A_L = A_L / np.dot(np.sum(A_L, axis=1, keepdims=True), np.ones((1, X.shape[0])))
-            
+
             # numpy -> torch.tensor
             X = X.transpose(1, 0)
             X = X.reshape([1, X.shape[0], X.shape[1]])
@@ -116,12 +135,9 @@ if __name__ == '__main__':
                 predicted_labels[np.argmax(patch_prob_output[0, :], axis=-1)==i_label] = i_label
 
             # output predicted labels
-            mesh = Easy_Mesh(os.path.join(mesh_path, test_mesh_filename.format(i_sample)))
-            mesh2 = Easy_Mesh()
-            mesh2.cells = mesh.cells
-            mesh2.update_cell_ids_and_points()
-            mesh2.cell_attributes['Label'] = predicted_labels
-            mesh2.to_vtp(os.path.join(test_path, 'Sample_{}_deployed.vtp'.format(i_sample)))
+            mesh2 = mesh.clone()
+            mesh2.addCellArray(predicted_labels, 'Label')
+            vedo.write(mesh2, os.path.join(test_path, 'Sample_{}_predicted.vtp'.format(i_sample)), binary=True)
 
             # convert predict result and label to one-hot maps
             tensor_predicted_labels = torch.from_numpy(predicted_labels)
@@ -154,7 +170,6 @@ if __name__ == '__main__':
     print(all_sen.describe())
     print(all_ppv)
     print(all_ppv.describe())
-    all_dsc.to_csv(os.path.join(test_path, 'test_DSC_report.csv'), header=True, index=True)
-    all_sen.to_csv(os.path.join(test_path, 'test_SEN_report.csv'), header=True, index=True)
-    all_ppv.to_csv(os.path.join(test_path, 'test_PPV_report.csv'), header=True, index=True)
-            
+    all_dsc.to_csv(os.path.join(test_path, 'test_DSC_report_fold_{}.csv'.format(i_fold)), header=True, index=True)
+    all_sen.to_csv(os.path.join(test_path, 'test_SEN_report_fold_{}.csv'.format(i_fold)), header=True, index=True)
+    all_ppv.to_csv(os.path.join(test_path, 'test_PPV_report_fold_{}.csv'.format(i_fold)), header=True, index=True)
