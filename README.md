@@ -13,7 +13,7 @@ python 3.7.6
 pytorch 1.6.0  
 numpy 1.18.1  
 pandas 1.1.3  
-vedo 2020.4.2
+vedo 2020.4.2  
 scikit-learn 0.22.1  
 [visdom](https://github.com/facebookresearch/visdom) 0.1.8.9 (optional; for step3)  
 [thundersvm](https://github.com/Xtra-Computing/thundersvm) (optional; for step6)  
