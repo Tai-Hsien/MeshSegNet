@@ -2,7 +2,7 @@ import os
 import numpy as np
 import torch
 import torch.nn as nn
-from imeshsegnet import *
+from meshsegnet import *
 import utils
 import vedo
 import pandas as pd
@@ -10,53 +10,53 @@ from losses_and_metrics_for_mesh import *
 from scipy.spatial import distance_matrix
 
 if __name__ == '__main__':
-    
+
     torch.cuda.set_device(utils.get_avail_gpu()) # assign which gpu will be used (only linux works)
-      
+
     i_fold = 1
     model_path = './models'
-    model_name = 'Mesh_Segementation_MeshSegNet_15_classes_60samples_best.tar'
-    
+    model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.tar'
+
     mesh_path = '' # need to define
     test_list = pd.read_csv('test_list_{}.csv'.format(i_fold))['Test ID'].values
     test_mesh_filename = 'Sample_0{0}_d.vtp'
     test_path = './test'
     if not os.path.exists(test_path):
         os.mkdir(test_path)
-    
+
     num_classes = 15
     num_channels = 15
-          
+
     # set model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = iMeshSegNet(num_classes=num_classes, num_channels=num_channels).to(device, dtype=torch.float)
-    
+    model = MeshSegNet(num_classes=num_classes, num_channels=num_channels).to(device, dtype=torch.float)
+
     # load trained model
     checkpoint = torch.load(os.path.join(model_path, model_name), map_location='cpu')
     model.load_state_dict(checkpoint['model_state_dict'])
     del checkpoint
     model = model.to(device, dtype=torch.float)
-    
+
     #cudnn
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.enabled = True
-    
+
     # Testing
     dsc = []
     sen = []
     ppv = []
-    
+
     print('Testing')
     model.eval()
     with torch.no_grad():
         for i_sample in test_list:
-            
+
             print('Predicting Sample filename: {}'.format(test_mesh_filename.format(i_sample)))
             # read image and label (annotation)
             mesh = vedo.load(os.path.join(mesh_path, test_mesh_filename.format(i_sample)))
             labels = mesh.getCellArray('Label').astype('int32').reshape(-1, 1)
             predicted_labels = np.zeros(labels.shape)
-        
+
             # move mesh to origin
             cells = np.zeros([mesh.NCells(), 9], dtype='float32')
             for i in range(len(cells)):
@@ -127,10 +127,10 @@ if __name__ == '__main__':
             A_L = A_L.reshape([1, A_L.shape[0], A_L.shape[1]])
             A_S = torch.from_numpy(A_S).to(device, dtype=torch.float)
             A_L = torch.from_numpy(A_L).to(device, dtype=torch.float)
-            
+
             tensor_prob_output = model(X, A_S, A_L).to(device, dtype=torch.float)
             patch_prob_output = tensor_prob_output.cpu().numpy()
-                
+
             for i_label in range(num_classes):
                 predicted_labels[np.argmax(patch_prob_output[0, :], axis=-1)==i_label] = i_label
 
@@ -146,7 +146,7 @@ if __name__ == '__main__':
             tensor_test_labels = tensor_test_labels.long()
             one_hot_predicted_labels = nn.functional.one_hot(tensor_predicted_labels[:, 0], num_classes=num_classes)
             one_hot_labels = nn.functional.one_hot(tensor_test_labels[:, 0], num_classes=num_classes)
-            
+
             # calculate DSC
             i_dsc = DSC(one_hot_predicted_labels, one_hot_labels)
             i_sen = SEN(one_hot_predicted_labels, one_hot_labels)
@@ -155,7 +155,7 @@ if __name__ == '__main__':
             sen.append(i_sen)
             ppv.append(i_ppv)
             #print('\tLabel 1: {}; Label 2: {}'.format(dsc[0], dsc[1]))
-        
+
     dsc = np.asarray(dsc)
     sen = np.asarray(sen)
     ppv = np.asarray(ppv)

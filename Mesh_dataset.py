@@ -28,7 +28,7 @@ class Mesh_Dataset(Dataset):
 
         # read vtk
         mesh = load(i_mesh)
-        labels = mesh.getCellArray('Label').astype('int32')
+        labels = mesh.getCellArray('Label').astype('int32').reshape(-1, 1)
 
         #create one-hot map
 #        label_map = np.zeros([mesh.cells.shape[0], self.num_classes], dtype='int32')

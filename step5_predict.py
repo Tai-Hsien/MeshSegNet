@@ -14,11 +14,10 @@ if __name__ == '__main__':
     torch.cuda.set_device(utils.get_avail_gpu()) # assign which gpu will be used (only linux works)
 
     model_path = './models'
-    #model_name = 'Mesh_Segementation_MeshSegNet_15_classes_60samples_best.tar'
     model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.tar'
 
     mesh_path = 'inputs'  # need to define
-    sample_filenames = ['Example_02.stl'] # need to define
+    sample_filenames = ['Example.stl'] # need to define
     output_path = './outputs'
     if not os.path.exists(output_path):
         os.mkdir(output_path)
@@ -49,12 +48,16 @@ if __name__ == '__main__':
             mesh = vedo.load(os.path.join(mesh_path, i_sample))
 
             # pre-processing: downsampling
-            print('\tDownsampling...')
-            target_num = 10000
-            ratio = target_num/mesh.NCells() # calculate ratio
-            mesh_d = mesh.clone()
-            mesh_d.decimate(fraction=ratio)
-            predicted_labels_d = np.zeros([mesh_d.NCells(), 1], dtype=np.int32)
+            if mesh.NCells() > 10000:
+                print('\tDownsampling...')
+                target_num = 10000
+                ratio = target_num/mesh.NCells() # calculate ratio
+                mesh_d = mesh.clone()
+                mesh_d.decimate(fraction=ratio)
+                predicted_labels_d = np.zeros([mesh_d.NCells(), 1], dtype=np.int32)
+            else:
+                mesh_d = mesh.clone()
+                predicted_labels_d = np.zeros([mesh_d.NCells(), 1], dtype=np.int32)
 
             # move mesh to origin
             print('\tPredicting...')

@@ -26,11 +26,10 @@ if __name__ == '__main__':
     #upsampling_method = 'KNN'
 
     model_path = './models'
-    #model_name = 'Mesh_Segementation_MeshSegNet_15_classes_60samples_best.tar'
     model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.tar'
 
     mesh_path = './inputs'  # need to modify
-    sample_filenames = ['Example_02.stl'] # need to modify
+    sample_filenames = ['Example.stl'] # need to modify
     output_path = './outputs'
     if not os.path.exists(output_path):
         os.mkdir(output_path)
