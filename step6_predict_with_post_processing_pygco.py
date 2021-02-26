@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 from meshsegnet import *
 import utils
-from easy_mesh_vtk.easy_mesh_vtk import *
+import vedo
 import pandas as pd
 from losses_and_metrics_for_mesh import *
 from scipy.spatial import distance_matrix
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     #model_name = 'Mesh_Segementation_MeshSegNet_15_classes_60samples_best.tar'
     model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.tar'
 
-    mesh_path = './inputs'
+    mesh_path = './inputs'  # need to modify
     sample_filenames = ['Example_02.stl'] # need to modify
     output_path = './outputs'
     if not os.path.exists(output_path):
@@ -66,32 +66,53 @@ if __name__ == '__main__':
 
             print('Predicting Sample filename: {}'.format(i_sample))
             # read image and label (annotation)
-            mesh = Easy_Mesh(os.path.join(mesh_path, i_sample))
+            mesh = vedo.load(os.path.join(mesh_path, i_sample))
 
             # pre-processing: downsampling
             print('\tDownsampling...')
             target_num = 10000
-            ratio = 1 - target_num/mesh.cells.shape[0] # calculate ratio
-            mesh_d = Easy_Mesh(os.path.join(mesh_path, i_sample))
-            mesh_d.mesh_decimation(ratio)
-            predicted_labels_d = np.zeros([mesh_d.cells.shape[0], 1], dtype=np.int32)
+            ratio = target_num/mesh.NCells() # calculate ratio
+            mesh_d = mesh.clone()
+            mesh_d.decimate(fraction=ratio)
+            predicted_labels_d = np.zeros([mesh_d.NCells(), 1], dtype=np.int32)
 
             # move mesh to origin
             print('\tPredicting...')
-            cell_centers = (mesh_d.cells[:, 0:3] + mesh_d.cells[:, 3:6] + mesh_d.cells[:, 6:9])/3.0
-            mean_cell_centers = np.mean(cell_centers, axis=0)
-            mesh_d.cells[:, 0:3] -= mean_cell_centers[0:3]
-            mesh_d.cells[:, 3:6] -= mean_cell_centers[0:3]
-            mesh_d.cells[:, 6:9] -= mean_cell_centers[0:3]
-            mesh_d.update_cell_ids_and_points() # update object when change cells
-            mesh_d.get_cell_normals() # get cell normal
+            cells = np.zeros([mesh_d.NCells(), 9], dtype='float32')
+            for i in range(len(cells)):
+                cells[i][0], cells[i][1], cells[i][2] = mesh_d._polydata.GetPoint(mesh_d._polydata.GetCell(i).GetPointId(0)) # don't need to copy
+                cells[i][3], cells[i][4], cells[i][5] = mesh_d._polydata.GetPoint(mesh_d._polydata.GetCell(i).GetPointId(1)) # don't need to copy
+                cells[i][6], cells[i][7], cells[i][8] = mesh_d._polydata.GetPoint(mesh_d._polydata.GetCell(i).GetPointId(2)) # don't need to copy
+
+            original_cells_d = cells.copy()
+
+            mean_cell_centers = mesh_d.centerOfMass()
+            cells[:, 0:3] -= mean_cell_centers[0:3]
+            cells[:, 3:6] -= mean_cell_centers[0:3]
+            cells[:, 6:9] -= mean_cell_centers[0:3]
+
+            # customized normal calculation; the vtk/vedo build-in function will change number of points
+            v1 = np.zeros([mesh_d.NCells(), 3], dtype='float32')
+            v2 = np.zeros([mesh_d.NCells(), 3], dtype='float32')
+            v1[:, 0] = cells[:, 0] - cells[:, 3]
+            v1[:, 1] = cells[:, 1] - cells[:, 4]
+            v1[:, 2] = cells[:, 2] - cells[:, 5]
+            v2[:, 0] = cells[:, 3] - cells[:, 6]
+            v2[:, 1] = cells[:, 4] - cells[:, 7]
+            v2[:, 2] = cells[:, 5] - cells[:, 8]
+            mesh_normals = np.cross(v1, v2)
+            mesh_normal_length = np.linalg.norm(mesh_normals, axis=1)
+            mesh_normals[:, 0] /= mesh_normal_length[:]
+            mesh_normals[:, 1] /= mesh_normal_length[:]
+            mesh_normals[:, 2] /= mesh_normal_length[:]
+            mesh_d.addCellArray(mesh_normals, 'Normal')
 
             # preprae input
-            cells = mesh_d.cells[:]
-            normals = mesh_d.cell_attributes['Normal'][:]
-            cell_ids = mesh_d.cell_ids[:]
-            points = mesh_d.points[:]
-            barycenters = (cells[:,0:3]+cells[:,3:6]+cells[:,6:9]) / 3
+            points = mesh_d.points().copy()
+            points[:, 0:3] -= mean_cell_centers[0:3]
+            normals = mesh_d.getCellArray('Normal').copy() # need to copy, they use the same memory address
+            barycenters = mesh_d.cellCenters() # don't need to copy
+            barycenters -= mean_cell_centers[0:3]
 
             #normalized data
             maxs = points.max(axis=0)
@@ -109,7 +130,6 @@ if __name__ == '__main__':
                 normals[:,i] = (normals[:,i] - nmeans[i]) / nstds[i]
 
             X = np.column_stack((cells, barycenters, normals))
-            #X = (X-np.ones((X.shape[0], 1))*np.mean(X, axis=0)) / (np.ones((X.shape[0], 1))*np.std(X, axis=0))
 
             # computing A_S and A_L
             A_S = np.zeros([X.shape[0], X.shape[0]], dtype='float32')
@@ -137,13 +157,9 @@ if __name__ == '__main__':
                 predicted_labels_d[np.argmax(patch_prob_output[0, :], axis=-1)==i_label] = i_label
 
             # output downsampled predicted labels
-            mesh_d = Easy_Mesh(os.path.join(mesh_path, i_sample))
-            mesh_d.mesh_decimation(ratio)
-            mesh2 = Easy_Mesh()
-            mesh2.cells = mesh_d.cells
-            mesh2.update_cell_ids_and_points()
-            mesh2.cell_attributes['Label'] = predicted_labels_d
-            mesh2.to_vtp(os.path.join(output_path, '{}_d_predicted.vtp'.format(i_sample[:-4])))
+            mesh2 = mesh_d.clone()
+            mesh2.addCellArray(predicted_labels_d, 'Label')
+            vedo.write(mesh2, os.path.join(output_path, '{}_d_predicted.vtp'.format(i_sample[:-4])))
 
             # refinement
             print('\tRefining by pygco...')
@@ -159,10 +175,10 @@ if __name__ == '__main__':
             pairwise = (1 - np.eye(num_classes, dtype=np.int32))
 
             #edges
-            mesh_d.get_cell_normals()
-            normals = mesh_d.cell_attributes['Normal'][:]
-            cells = mesh_d.cells[:]
-            barycenters = (cells[:, 0:3] + cells[:, 3:6] + cells[:, 6:9])/3.0
+            normals = mesh_d.getCellArray('Normal').copy() # need to copy, they use the same memory address
+            cells = original_cells_d.copy()
+            barycenters = mesh_d.cellCenters() # don't need to copy
+            cell_ids = np.asarray(mesh_d.faces())
 
             lambda_c = 30
             edges = np.empty([1, 3], order='C')
@@ -178,10 +194,10 @@ if __name__ == '__main__':
                         theta = np.arccos(cos_theta)
                         phi = np.linalg.norm(barycenters[i_node, :] - barycenters[i_nei, :])
                         if theta > np.pi/2.0:
-                            edges = np.concatenate((edges, np.array([i_node, i_nei, -math.log10(theta/np.pi)*phi]).reshape(1, 3)), axis=0)
+                            edges = np.concatenate((edges, np.array([i_node, i_nei, -np.log10(theta/np.pi)*phi]).reshape(1, 3)), axis=0)
                         else:
                             beta = 1 + np.linalg.norm(np.dot(normals[i_node, 0:3], normals[i_nei, 0:3]))
-                            edges = np.concatenate((edges, np.array([i_node, i_nei, -beta*math.log10(theta/np.pi)*phi]).reshape(1, 3)), axis=0)
+                            edges = np.concatenate((edges, np.array([i_node, i_nei, -beta*np.log10(theta/np.pi)*phi]).reshape(1, 3)), axis=0)
             edges = np.delete(edges, 0, 0)
             edges[:, 2] *= lambda_c*round_factor
             edges = edges.astype(np.int32)
@@ -190,42 +206,52 @@ if __name__ == '__main__':
             refine_labels = refine_labels.reshape([-1, 1])
 
             # output refined result
-            mesh2 = Easy_Mesh()
-            mesh2.cells = mesh_d.cells
-            mesh2.update_cell_ids_and_points()
-            mesh2.cell_attributes['Label'] = refine_labels
-            mesh2.to_vtp(os.path.join(output_path, '{}_d_predicted_refined_pygco.vtp'.format(i_sample[:-4])))
+            mesh3 = mesh_d.clone()
+            mesh3.addCellArray(refine_labels, 'Label')
+            vedo.write(mesh3, os.path.join(output_path, '{}_d_predicted_refined.vtp'.format(i_sample[:-4])))
 
             # upsampling
             print('\tUpsampling...')
-            if mesh.cells.shape[0] > 100000:
+            if mesh.NCells() > 100000:
                 target_num = 100000 # set max number of cells
-                ratio = 1 - target_num/mesh.cells.shape[0] # calculate ratio
-                mesh.mesh_decimation(ratio)
-                print('Original contains too many cells, simpify to {} cells'.format(mesh.cells.shape[0]))
+                ratio = target_num/mesh.NCells() # calculate ratio
+                mesh.decimate(fraction=ratio)
+                print('Original contains too many cells, simpify to {} cells'.format(mesh.NCells()))
 
-            fine_cells = mesh.cells
+            # get fine_cells
+            cells = np.zeros([mesh.NCells(), 9], dtype='float32')
+            for i in range(len(cells)):
+                cells[i][0], cells[i][1], cells[i][2] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(0)) # don't need to copy
+                cells[i][3], cells[i][4], cells[i][5] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(1)) # don't need to copy
+                cells[i][6], cells[i][7], cells[i][8] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(2)) # don't need to copy
+
+            fine_cells = cells
+
+            barycenters = mesh3.cellCenters() # don't need to copy
+            fine_barycenters = mesh.cellCenters() # don't need to copy
 
             if upsampling_method == 'SVM':
                 #clf = SVC(kernel='rbf', gamma='auto', probability=True, gpu_id=gpu_id)
                 clf = SVC(kernel='rbf', gamma='auto', gpu_id=gpu_id)
                 # train SVM
-                clf.fit(cells, np.ravel(refine_labels))
-                fine_labels = clf.predict(fine_cells)
-                fine_labels = fine_labels.reshape([mesh.cells.shape[0], 1])
-                #fine_prob = clf.predict_proba(fine_cells)
+                #clf.fit(mesh2.cells, np.ravel(refine_labels))
+                #fine_labels = clf.predict(fine_cells)
+
+                clf.fit(barycenters, np.ravel(refine_labels))
+                fine_labels = clf.predict(fine_barycenters)
+                fine_labels = fine_labels.reshape(-1, 1)
             elif upsampling_method == 'KNN':
                 neigh = KNeighborsClassifier(n_neighbors=3)
                 # train KNN
-                neigh.fit(cells, np.ravel(refine_labels))
-                fine_labels = neigh.predict(fine_cells)
-                fine_labels = fine_labels.reshape([mesh.cells.shape[0], 1])
+                #neigh.fit(mesh2.cells, np.ravel(refine_labels))
+                #fine_labels = neigh.predict(fine_cells)
 
-            mesh2 = Easy_Mesh()
-            mesh2.cells = mesh.cells
-            mesh2.update_cell_ids_and_points()
-            mesh2.cell_attributes['Label'] = fine_labels
-            mesh2.to_vtp(os.path.join(output_path, '{}_predicted_refined.vtp'.format(i_sample[:-4])))
+                neigh.fit(barycenters, np.ravel(refine_labels))
+                fine_labels = neigh.predict(fine_barycenters)
+                fine_labels = fine_labels.reshape(-1, 1)
+
+            mesh.addCellArray(fine_labels, 'Label')
+            vedo.write(mesh, os.path.join(output_path, '{}_predicted_refined.vtp'.format(i_sample[:-4])))
 
             #remove tmp folder
             shutil.rmtree(tmp_path)

@@ -12,6 +12,8 @@ Prequisites
 python 3.7.6  
 pytorch 1.6.0  
 numpy 1.18.1  
+pandas 1.1.3
+vedo 2020.4.2
 scikit-learn 0.22.1  
 [visdom](https://github.com/facebookresearch/visdom) 0.1.8.9 (optional; for step3)  
 [thundersvm](https://github.com/Xtra-Computing/thundersvm) (optional; for step6)  
@@ -39,11 +41,10 @@ intraoral scans (i.e., meshes) by 1) random rotation, 2) random translation, and
 3) random rescaling of each mesh in reasonable ranges.
 
 In this work, our intraoral scans are stored as VTP (VTK polygonal data) format.
-I have designed a customized simplified package called “*easy\_mesh\_vtk”* for
-reading and manipulate VTP files. Please refer to
-<https://github.com/Tai-Hsien/easy_mesh_vtk>. In our work, we have 36 intraoral
-scans, and all of these scans have been downsampled by using “*easy\_mesh\_vtk”*
-previously. We use 24 scans as the training set, 6 scans as the validation set,
+To read, write, and manipulate VTP files, we use **vedo**. Please refer to
+<https://github.com/marcomusy/vedo>. In our work, we have 36 intraoral
+scans, and all of these scans have been downsampled previously. 
+We use 24 scans as the training set, 6 scans as the validation set,
 and keep 6 scans as the test set. For training and validation sets, each scan
 (e.g., Sample\_01\_d.vtp) and its flipped (e.g., Sample\_01001\_d.vtp) are augmented
 20 times. All generated augmented intraoral scans (i.e., training and validation
@@ -91,7 +92,7 @@ You can start to train a **MeshSegNet** model by the following command.
 
 <pre><code>python step3_training.py</pre></code>
 
-We provide a trained model and its training curves in “*./models*” folder.
+We provide two trained models (an upper and a lower) and the training curves in “*./models*” folder.
 
 Optional:
 
@@ -125,8 +126,7 @@ To implement this step, by entering
 
 <pre><code>python step5_predict.py</pre></code>
 
-Note that this step only accepts the downsampled mesh (e.g., number of cells<=10,000). Otherwise most likely you will see insufficient GPU memory error.
-For those models are not dowsampled, please try step6 which includes downsampling, prediction, refinement, and mapping results back to original resolution.
+Note that this step will downsample mesh if number of cells > 10,000. Otherwise most likely it will have insufficient GPU memory error.
 
 Step 6 Predict unseen intraoral scans with post-pocessing
 ---------------
@@ -135,14 +135,8 @@ Our publication in *IEEE Transactions on Medical Imaging
 (*<https://ieeexplore.ieee.org/abstract/document/8984309>) mentioned the
 multi-label graph-cut method to refine the predicted results. To do that, by implementing
 <pre><code>python step6_predict_with_post_processing_pygco.py</pre></code>
-or 
-<pre><code>python step6_predict_with_post_processing_gco.py</pre></code>
 
-The first one is to implement multi-label graph cut based on python package [pygco](https://github.com/amueller/gco_python).
-The second one is based on a MATLAB code, tooth_segmentation_refinement_mat.m, in <https://github.com/Tai-Hsien/MeshSegNet/tree/master/gco-v3.0/matlab> and [gco-v3.0.zip](http://mouse.cs.uwaterloo.ca/code/gco-v3.0.zip) 
-<https://vision.cs.uwaterloo.ca/code/> (also provided in this repo).  
-Since the MATLAB gco requires the proper MATLAB environment setup and MATLABEngine API for python, we suggest the first way, which is based on pygco and is more efficent in terms of computing time and memory use. Both of them will generate the same result.
-
+The multi-label graph cut is implemented by the python package [pygco](https://github.com/amueller/gco_python).
 
 Citation
 --------
