@@ -3,7 +3,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from meshsegnet import *
-import utils
 import vedo
 import pandas as pd
 from losses_and_metrics_for_mesh import *
@@ -11,12 +10,14 @@ from scipy.spatial import distance_matrix
 
 if __name__ == '__main__':
 
-    torch.cuda.set_device(utils.get_avail_gpu()) # assign which gpu will be used (only linux works)
+    #gpu_id = utils.get_avail_gpu()
+    gpu_id = 0
+    torch.cuda.set_device(gpu_id) # assign which gpu will be used (only linux works)
 
     model_path = './models'
     model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.tar'
 
-    mesh_path = 'inputs'  # need to define
+    mesh_path = './'  # need to define
     sample_filenames = ['Example.stl'] # need to define
     output_path = './outputs'
     if not os.path.exists(output_path):
@@ -138,7 +139,7 @@ if __name__ == '__main__':
             patch_prob_output = tensor_prob_output.cpu().numpy()
 
             for i_label in range(num_classes):
-                predicted_labels[np.argmax(patch_prob_output[0, :], axis=-1)==i_label] = i_label
+                predicted_labels_d[np.argmax(patch_prob_output[0, :], axis=-1)==i_label] = i_label
 
             # output downsampled predicted labels
             mesh2 = mesh_d.clone()

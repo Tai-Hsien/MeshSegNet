@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
-from torchsummary import summary
 
 class STN3d(nn.Module):
     def __init__(self, channel):
@@ -41,7 +40,7 @@ class STN3d(nn.Module):
         x = x + iden
         x = x.view(-1, 3, 3)
         return x
-    
+
 class STNkd(nn.Module):
     def __init__(self, k=64):
         super(STNkd, self).__init__()
@@ -80,7 +79,7 @@ class STNkd(nn.Module):
         x = x + iden
         x = x.view(-1, self.k, self.k)
         return x
-        
+
 class MeshSegNet(nn.Module):
     def __init__(self, num_classes=15, num_channels=15, with_dropout=True, dropout_p=0.5):
         super(MeshSegNet, self).__init__()
@@ -88,7 +87,7 @@ class MeshSegNet(nn.Module):
         self.num_channels = num_channels
         self.with_dropout = with_dropout
         self.dropout_p = dropout_p
-        
+
         # MLP-1 [64, 64]
         self.mlp1_conv1 = torch.nn.Conv1d(self.num_channels, 64, 1)
         self.mlp1_conv2 = torch.nn.Conv1d(64, 64, 1)
@@ -147,7 +146,7 @@ class MeshSegNet(nn.Module):
         sap = torch.bmm(a_s, x_ftm)
         sap = sap.transpose(2, 1)
         x_ftm = x_ftm.transpose(2, 1)
-        x = F.relu(self.glm1_bn1_1(self.glm1_conv1_1(x_ftm)))        
+        x = F.relu(self.glm1_bn1_1(self.glm1_conv1_1(x_ftm)))
         glm_1_sap = F.relu(self.glm1_bn1_2(self.glm1_conv1_2(sap)))
         x = torch.cat([x, glm_1_sap], dim=1)
         x = F.relu(self.glm1_bn2(self.glm1_conv2(x)))
@@ -187,9 +186,9 @@ class MeshSegNet(nn.Module):
         x = x.transpose(2,1).contiguous()
         x = torch.nn.Softmax(dim=-1)(x.view(-1, self.num_classes))
         x = x.view(batchsize, n_pts, self.num_classes)
-        
+
         return x
-    
+
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = MeshSegNet().to(device)

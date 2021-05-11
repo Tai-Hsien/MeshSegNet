@@ -3,7 +3,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from meshsegnet import *
-import utils
 import vedo
 import pandas as pd
 from losses_and_metrics_for_mesh import *
@@ -11,8 +10,8 @@ from scipy.spatial import distance_matrix
 import scipy.io as sio
 import shutil
 import time
-#from sklearn.svm import SVC # uncomment this line if you don't install thudersvm
-from thundersvm import SVC # comment this line if you don't install thudersvm
+# from sklearn.svm import SVC # uncomment this line if you don't install thudersvm
+# from thundersvm import SVC # comment this line if you don't install thudersvm
 from sklearn.neighbors import KNeighborsClassifier
 from pygco import cut_from_graph
 
@@ -22,13 +21,13 @@ if __name__ == '__main__':
     gpu_id = 0
     torch.cuda.set_device(gpu_id) # assign which gpu will be used (only linux works)
 
-    upsampling_method = 'SVM'
-    #upsampling_method = 'KNN'
+    # upsampling_method = 'SVM'
+    upsampling_method = 'KNN'
 
     model_path = './models'
     model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.tar'
 
-    mesh_path = './inputs'  # need to modify
+    mesh_path = './'  # need to modify
     sample_filenames = ['Example.stl'] # need to modify
     output_path = './outputs'
     if not os.path.exists(output_path):
