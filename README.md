@@ -143,18 +143,17 @@ Citation
 
 If you find our work useful in your research, please cite:
 
-\@article{Lian2020,  
-author = {Lian, C and Wang, L and Wu, T and Wang, F and Yap, P and Ko, C and Shen, D},  
-doi = {10.1109/TMI.2020.2971730},  
-issn = {1558-254X VO -},  
-journal = {IEEE Transactions on Medical Imaging},  
-keywords = {3D Intraoral Scanners,3D Shape Segmentation,Automated Tooth Labeling,Geometric Deep Learning,Orthodontic Treatment Planning},  
-pages = {1},  
-title = {{Deep Multi-Scale Mesh Feature Learning for Automated Labeling of Raw Dental Surfaces from 3D Intraoral Scanners}},  
-year = {2020}  
-}
+@ARTICLE{8984309,
+  author={Lian, Chunfeng and Wang, Li and Wu, Tai-Hsien and Wang, Fan and Yap, Pew-Thian and Ko, Ching-Chang and Shen, Dinggang},
+  journal={IEEE Transactions on Medical Imaging}, 
+  title={Deep Multi-Scale Mesh Feature Learning for Automated Labeling of Raw Dental Surfaces From 3D Intraoral Scanners}, 
+  year={2020},
+  volume={39},
+  number={7},
+  pages={2440-2450},
+  doi={10.1109/TMI.2020.2971730}}
 
-\@inproceedings{Lian2019,
+@inproceedings{Lian2019,
 address = {Cham},  
 author = {Lian, Chunfeng and Wang, Li and Wu, Tai-Hsien and Liu, Mingxia and
 Dur{\\'{a}}n, Francisca and Ko, Ching-Chang and Shen, Dinggang},  
@@ -166,3 +165,27 @@ publisher = {Springer International Publishing},
 title = {{MeshSNet: Deep Multi-scale Mesh Feature Learning for End-to-End Tooth Labeling on 3D Dental Surfaces BT - Medical Image Computing and Computer Assisted Intervention – MICCAI 2019}},  
 year = {2019}  
 }
+
+@Inbook{Wu2021,
+author="Wu, Tai-Hsien
+and Lian, Chunfeng
+and Piers, Christian
+and Pastewait, Matthew
+and Wang, Li
+and Shen, Dinggang
+and Ko, Ching-Chang",
+editor="Ko, Ching-Chang
+and Shen, Dinggang
+and Wang, Li",
+title="Machine (Deep) Learning for Orthodontic CAD/CAM Technologies",
+bookTitle="Machine Learning in Dentistry",
+year="2021",
+publisher="Springer International Publishing",
+address="Cham",
+pages="117--129",
+abstract="Accurate tooth segmentation on a 3D dental mesh model is a vital task in computer-aided design and computer-aided manufacturing (CAD/CAM) technologies for orthodontic treatment planning. This task is especially challenging due to the complexity and variation of human teeth. Recently, several pioneering deep neural networks (e.g., PointNet) have been proposed in the computer vision and computer graphics communities to efficiently segment 3D objects in an end-to-end manner. However, these methods do not perform well and produce undesirable results in the specific task of tooth labeling because they cannot explicitly model the fine-grained local geometric context of teeth. In this chapter, we comprehensively review a recently-proposed deep neural network, MeshSegNet or MeshSNet, which is designed for end-to-end tooth segmentation on 3D dental surface meshes captured from intraoral scanners. The entire approach from preprocessing to postprocessing for the task-automated tooth segmentation is discussed in detail. The preprocessing procedures of the MeshSegNet include mesh simplification and data augmentation. The results from MeshSegNet are then refined in two stages during the post-processing phase. Each of these steps is detailed in this chapter, along with a comparison of segmentation results between the original PointNet and MeshSegNet, which highlights the superior performance of MeshSegNet.",
+isbn="978-3-030-71881-7",
+doi="10.1007/978-3-030-71881-7_10",
+url="https://doi.org/10.1007/978-3-030-71881-7_10"
+}
+
