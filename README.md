@@ -141,7 +141,7 @@ The multi-label graph cut is implemented by the python package [pygco](https://g
 License
 --------
 
-The code is released under MIT License (see LICENSE file for details).
+The MeshSegNet code is released under MIT License (see LICENSE file for details).
 
 
 Citation
