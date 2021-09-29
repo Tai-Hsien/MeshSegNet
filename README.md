@@ -138,6 +138,12 @@ multi-label graph-cut method to refine the predicted results. To do that, by imp
 
 The multi-label graph cut is implemented by the python package [pygco](https://github.com/amueller/gco_python).
 
+License
+--------
+
+The code is released under MIT License (see LICENSE file for details).
+
+
 Citation
 --------
 
