@@ -25,10 +25,10 @@ if __name__ == '__main__':
     upsampling_method = 'KNN'
 
     model_path = './models'
-    model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.tar'
+    model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.zip'
 
     mesh_path = './'  # need to modify
-    sample_filenames = ['Example.stl'] # need to modify
+    sample_filenames = ['Example_02.stl'] # need to modify
     output_path = './outputs'
     if not os.path.exists(output_path):
         os.mkdir(output_path)
@@ -78,9 +78,9 @@ if __name__ == '__main__':
             print('\tPredicting...')
             cells = np.zeros([mesh_d.NCells(), 9], dtype='float32')
             for i in range(len(cells)):
-                cells[i][0], cells[i][1], cells[i][2] = mesh_d._polydata.GetPoint(mesh_d._polydata.GetCell(i).GetPointId(0)) # don't need to copy
-                cells[i][3], cells[i][4], cells[i][5] = mesh_d._polydata.GetPoint(mesh_d._polydata.GetCell(i).GetPointId(1)) # don't need to copy
-                cells[i][6], cells[i][7], cells[i][8] = mesh_d._polydata.GetPoint(mesh_d._polydata.GetCell(i).GetPointId(2)) # don't need to copy
+                cells[i][0], cells[i][1], cells[i][2] = mesh_d.polydata().GetPoint(mesh_d.polydata().GetCell(i).GetPointId(0)) # don't need to copy
+                cells[i][3], cells[i][4], cells[i][5] = mesh_d.polydata().GetPoint(mesh_d.polydata().GetCell(i).GetPointId(1)) # don't need to copy
+                cells[i][6], cells[i][7], cells[i][8] = mesh_d.polydata().GetPoint(mesh_d.polydata().GetCell(i).GetPointId(2)) # don't need to copy
 
             original_cells_d = cells.copy()
 
@@ -219,9 +219,9 @@ if __name__ == '__main__':
             # get fine_cells
             cells = np.zeros([mesh.NCells(), 9], dtype='float32')
             for i in range(len(cells)):
-                cells[i][0], cells[i][1], cells[i][2] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(0)) # don't need to copy
-                cells[i][3], cells[i][4], cells[i][5] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(1)) # don't need to copy
-                cells[i][6], cells[i][7], cells[i][8] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(2)) # don't need to copy
+                cells[i][0], cells[i][1], cells[i][2] = mesh.polydata().GetPoint(mesh.polydata().GetCell(i).GetPointId(0)) # don't need to copy
+                cells[i][3], cells[i][4], cells[i][5] = mesh.polydata().GetPoint(mesh.polydata().GetCell(i).GetPointId(1)) # don't need to copy
+                cells[i][6], cells[i][7], cells[i][8] = mesh.polydata().GetPoint(mesh.polydata().GetCell(i).GetPointId(2)) # don't need to copy
 
             fine_cells = cells
 
