@@ -36,11 +36,10 @@ class Mesh_Dataset(Dataset):
 #        label_map = label_map.reshape([len(labels), self.num_classes])
 
         # move mesh to origin
-        cells = np.zeros([mesh.NCells(), 9], dtype='float32')
-        for i in range(len(cells)):
-            cells[i][0], cells[i][1], cells[i][2] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(0)) # don't need to copy
-            cells[i][3], cells[i][4], cells[i][5] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(1)) # don't need to copy
-            cells[i][6], cells[i][7], cells[i][8] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(2)) # don't need to copy
+        N = mesh.NCells()
+        points = vtk2numpy(mesh.polydata().GetPoints().GetData())
+        ids = vtk2numpy(mesh.polydata().GetPolys().GetData()).reshape((N, -1))[:,1:]
+        cells = points[ids].reshape(N, 9).astype(dtype='float32')
 
         mean_cell_centers = mesh.centerOfMass()
         cells[:, 0:3] -= mean_cell_centers[0:3]
@@ -121,8 +120,13 @@ class Mesh_Dataset(Dataset):
 #        mesh2.cell_attributes['Normal'] = X_train[:, 12:15]
 #        mesh2.cell_attributes['Label'] = Y_train
 #        mesh2.to_vtp('tmp.vtp')
+        if  torch.cuda.is_available():
+            TX = torch.as_tensor(X_train[:, 9:12], device='cuda')
+            TD = torch.cdist(TX, TX)
+            D = TD.cpu().numpy()
+        else:
+            D = distance_matrix(X_train[:, 9:12], X_train[:, 9:12])
 
-        D = distance_matrix(X_train[:, 9:12], X_train[:, 9:12])
         S1[D<0.1] = 1.0
         S1 = S1 / np.dot(np.sum(S1, axis=1, keepdims=True), np.ones((1, self.patch_size)))
 
