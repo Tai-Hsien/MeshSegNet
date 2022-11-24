@@ -28,45 +28,23 @@ class Mesh_Dataset(Dataset):
 
         # read vtk
         mesh = load(i_mesh)
-        labels = mesh.getCellArray('Label').astype('int32').reshape(-1, 1)
+        labels = mesh.celldata['Label'].astype('int32').reshape(-1, 1)
 
-        #create one-hot map
-#        label_map = np.zeros([mesh.cells.shape[0], self.num_classes], dtype='int32')
-#        label_map = np.eye(self.num_classes)[labels]
-#        label_map = label_map.reshape([len(labels), self.num_classes])
-
+        # new way
         # move mesh to origin
-        N = mesh.NCells()
-        points = vtk2numpy(mesh.polydata().GetPoints().GetData())
-        ids = vtk2numpy(mesh.polydata().GetPolys().GetData()).reshape((N, -1))[:,1:]
-        cells = points[ids].reshape(N, 9).astype(dtype='float32')
+        points = mesh.points()
+        mean_cell_centers = mesh.center_of_mass()
+        points[:, 0:3] -= mean_cell_centers[0:3]
 
-        mean_cell_centers = mesh.centerOfMass()
-        cells[:, 0:3] -= mean_cell_centers[0:3]
-        cells[:, 3:6] -= mean_cell_centers[0:3]
-        cells[:, 6:9] -= mean_cell_centers[0:3]
+        ids = np.array(mesh.faces())
+        cells = points[ids].reshape(mesh.ncells, 9).astype(dtype='float32')
 
         # customized normal calculation; the vtk/vedo build-in function will change number of points
-        v1 = np.zeros([mesh.NCells(), 3], dtype='float32')
-        v2 = np.zeros([mesh.NCells(), 3], dtype='float32')
-        v1[:, 0] = cells[:, 0] - cells[:, 3]
-        v1[:, 1] = cells[:, 1] - cells[:, 4]
-        v1[:, 2] = cells[:, 2] - cells[:, 5]
-        v2[:, 0] = cells[:, 3] - cells[:, 6]
-        v2[:, 1] = cells[:, 4] - cells[:, 7]
-        v2[:, 2] = cells[:, 5] - cells[:, 8]
-        mesh_normals = np.cross(v1, v2)
-        mesh_normal_length = np.linalg.norm(mesh_normals, axis=1)
-        mesh_normals[:, 0] /= mesh_normal_length[:]
-        mesh_normals[:, 1] /= mesh_normal_length[:]
-        mesh_normals[:, 2] /= mesh_normal_length[:]
-        mesh.addCellArray(mesh_normals, 'Normal')
+        mesh.compute_normals()
+        normals = mesh.celldata['Normals']
 
-        # preprae input and make copies of original data
-        points = mesh.points().copy()
-        points[:, 0:3] -= mean_cell_centers[0:3]
-        normals = mesh.getCellArray('Normal').copy() # need to copy, they use the same memory address
-        barycenters = mesh.cellCenters() # don't need to copy
+        # move mesh to origin
+        barycenters = mesh.cell_centers() # don't need to copy
         barycenters -= mean_cell_centers[0:3]
 
         #normalized data
@@ -113,13 +91,6 @@ class Mesh_Dataset(Dataset):
         X_train[:] = X[selected_idx, :]
         Y_train[:] = Y[selected_idx, :]
 
-        # output to visualize
-#        mesh2 = Easy_Mesh()
-#        mesh2.cells = X_train[:, 0:9]
-#        mesh2.update_cell_ids_and_points()
-#        mesh2.cell_attributes['Normal'] = X_train[:, 12:15]
-#        mesh2.cell_attributes['Label'] = Y_train
-#        mesh2.to_vtp('tmp.vtp')
         if  torch.cuda.is_available():
             TX = torch.as_tensor(X_train[:, 9:12], device='cuda')
             TD = torch.cdist(TX, TX)
@@ -140,3 +111,7 @@ class Mesh_Dataset(Dataset):
                   'A_S': torch.from_numpy(S1), 'A_L': torch.from_numpy(S2)}
 
         return sample
+
+if __name__ == '__main__':
+    dataset = Mesh_Dataset('./train_list_1.csv')
+    print(dataset.__getitem__(0))

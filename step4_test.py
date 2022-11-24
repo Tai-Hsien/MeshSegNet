@@ -13,12 +13,11 @@ if __name__ == '__main__':
 
     torch.cuda.set_device(utils.get_avail_gpu()) # assign which gpu will be used (only linux works)
 
-    i_fold = 1
     model_path = './models'
     model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.tar'
 
     mesh_path = '' # need to define
-    test_list = pd.read_csv('test_list_{}.csv'.format(i_fold))['Test ID'].values
+    test_list = pd.read_csv('test_list_1.csv')['Test ID'].values # need to change the test_list by users if you have your own test samples
     test_mesh_filename = 'Sample_0{0}_d.vtp'
     test_path = './test'
     if not os.path.exists(test_path):
@@ -54,42 +53,23 @@ if __name__ == '__main__':
             print('Predicting Sample filename: {}'.format(test_mesh_filename.format(i_sample)))
             # read image and label (annotation)
             mesh = vedo.load(os.path.join(mesh_path, test_mesh_filename.format(i_sample)))
-            labels = mesh.getCellArray('Label').astype('int32').reshape(-1, 1)
+            labels = mesh.celldata['Label'].astype('int32').reshape(-1, 1)
             predicted_labels = np.zeros(labels.shape)
 
             # move mesh to origin
-            cells = np.zeros([mesh.NCells(), 9], dtype='float32')
-            for i in range(len(cells)):
-                cells[i][0], cells[i][1], cells[i][2] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(0)) # don't need to copy
-                cells[i][3], cells[i][4], cells[i][5] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(1)) # don't need to copy
-                cells[i][6], cells[i][7], cells[i][8] = mesh._polydata.GetPoint(mesh._polydata.GetCell(i).GetPointId(2)) # don't need to copy
-
-            mean_cell_centers = mesh.centerOfMass()
-            cells[:, 0:3] -= mean_cell_centers[0:3]
-            cells[:, 3:6] -= mean_cell_centers[0:3]
-            cells[:, 6:9] -= mean_cell_centers[0:3]
-
-            # customized normal calculation; the vtk/vedo build-in function will change number of points
-            v1 = np.zeros([mesh.NCells(), 3], dtype='float32')
-            v2 = np.zeros([mesh.NCells(), 3], dtype='float32')
-            v1[:, 0] = cells[:, 0] - cells[:, 3]
-            v1[:, 1] = cells[:, 1] - cells[:, 4]
-            v1[:, 2] = cells[:, 2] - cells[:, 5]
-            v2[:, 0] = cells[:, 3] - cells[:, 6]
-            v2[:, 1] = cells[:, 4] - cells[:, 7]
-            v2[:, 2] = cells[:, 5] - cells[:, 8]
-            mesh_normals = np.cross(v1, v2)
-            mesh_normal_length = np.linalg.norm(mesh_normals, axis=1)
-            mesh_normals[:, 0] /= mesh_normal_length[:]
-            mesh_normals[:, 1] /= mesh_normal_length[:]
-            mesh_normals[:, 2] /= mesh_normal_length[:]
-            mesh.addCellArray(mesh_normals, 'Normal')
-
-            # preprae input
-            points = mesh.points().copy()
+            points = mesh.points()
+            mean_cell_centers = mesh.center_of_mass()
             points[:, 0:3] -= mean_cell_centers[0:3]
-            normals = mesh.getCellArray('Normal').copy() # need to copy, they use the same memory address
-            barycenters = mesh.cellCenters() # don't need to copy
+
+            ids = np.array(mesh.faces())
+            cells = points[ids].reshape(mesh.ncells, 9).astype(dtype='float32')
+
+            # calculate normals
+            mesh.compute_normals()
+            normals = mesh.celldata['Normals']
+
+            # move mesh to origin
+            barycenters = mesh.cell_centers() # don't need to copy
             barycenters -= mean_cell_centers[0:3]
 
             #normalized data
@@ -136,7 +116,7 @@ if __name__ == '__main__':
 
             # output predicted labels
             mesh2 = mesh.clone()
-            mesh2.addCellArray(predicted_labels, 'Label')
+            mesh2.celldata['Label'] = predicted_labels
             vedo.write(mesh2, os.path.join(test_path, 'Sample_{}_predicted.vtp'.format(i_sample)), binary=True)
 
             # convert predict result and label to one-hot maps
@@ -170,6 +150,6 @@ if __name__ == '__main__':
     print(all_sen.describe())
     print(all_ppv)
     print(all_ppv.describe())
-    all_dsc.to_csv(os.path.join(test_path, 'test_DSC_report_fold_{}.csv'.format(i_fold)), header=True, index=True)
-    all_sen.to_csv(os.path.join(test_path, 'test_SEN_report_fold_{}.csv'.format(i_fold)), header=True, index=True)
-    all_ppv.to_csv(os.path.join(test_path, 'test_PPV_report_fold_{}.csv'.format(i_fold)), header=True, index=True)
+    all_dsc.to_csv(os.path.join(test_path, 'test_DSC_report_fold_1.csv'), header=True, index=True)
+    all_sen.to_csv(os.path.join(test_path, 'test_SEN_report_fold_1.csv'), header=True, index=True)
+    all_ppv.to_csv(os.path.join(test_path, 'test_PPV_report_fold_1.csv'), header=True, index=True)

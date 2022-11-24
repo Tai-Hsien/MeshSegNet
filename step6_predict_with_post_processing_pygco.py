@@ -10,15 +10,15 @@ from scipy.spatial import distance_matrix
 import scipy.io as sio
 import shutil
 import time
-# from sklearn.svm import SVC # uncomment this line if you don't install thudersvm
-# from thundersvm import SVC # comment this line if you don't install thudersvm
+from sklearn.svm import SVC # uncomment this line if you don't install thudersvm
+# from thundersvm import SVC 
 from sklearn.neighbors import KNeighborsClassifier
 from pygco import cut_from_graph
+import utils
 
 if __name__ == '__main__':
 
-    #gpu_id = utils.get_avail_gpu()
-    gpu_id = 0
+    gpu_id = utils.get_avail_gpu()
     torch.cuda.set_device(gpu_id) # assign which gpu will be used (only linux works)
 
     # upsampling_method = 'SVM'
@@ -28,7 +28,7 @@ if __name__ == '__main__':
     model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.zip'
 
     mesh_path = './'  # need to modify
-    sample_filenames = ['Example_02.stl'] # need to modify
+    sample_filenames = ['Example.stl'] # need to modify
     output_path = './outputs'
     if not os.path.exists(output_path):
         os.mkdir(output_path)
@@ -69,47 +69,26 @@ if __name__ == '__main__':
             # pre-processing: downsampling
             print('\tDownsampling...')
             target_num = 10000
-            ratio = target_num/mesh.NCells() # calculate ratio
+            ratio = target_num/mesh.ncells # calculate ratio
             mesh_d = mesh.clone()
             mesh_d.decimate(fraction=ratio)
-            predicted_labels_d = np.zeros([mesh_d.NCells(), 1], dtype=np.int32)
+            predicted_labels_d = np.zeros([mesh_d.ncells, 1], dtype=np.int32)
 
             # move mesh to origin
             print('\tPredicting...')
-            cells = np.zeros([mesh_d.NCells(), 9], dtype='float32')
-            for i in range(len(cells)):
-                cells[i][0], cells[i][1], cells[i][2] = mesh_d.polydata().GetPoint(mesh_d.polydata().GetCell(i).GetPointId(0)) # don't need to copy
-                cells[i][3], cells[i][4], cells[i][5] = mesh_d.polydata().GetPoint(mesh_d.polydata().GetCell(i).GetPointId(1)) # don't need to copy
-                cells[i][6], cells[i][7], cells[i][8] = mesh_d.polydata().GetPoint(mesh_d.polydata().GetCell(i).GetPointId(2)) # don't need to copy
+            points = mesh_d.points()
+            mean_cell_centers = mesh_d.center_of_mass()
+            points[:, 0:3] -= mean_cell_centers[0:3]
 
-            original_cells_d = cells.copy()
-
-            mean_cell_centers = mesh_d.centerOfMass()
-            cells[:, 0:3] -= mean_cell_centers[0:3]
-            cells[:, 3:6] -= mean_cell_centers[0:3]
-            cells[:, 6:9] -= mean_cell_centers[0:3]
+            ids = np.array(mesh_d.faces())
+            cells = points[ids].reshape(mesh_d.ncells, 9).astype(dtype='float32')
 
             # customized normal calculation; the vtk/vedo build-in function will change number of points
-            v1 = np.zeros([mesh_d.NCells(), 3], dtype='float32')
-            v2 = np.zeros([mesh_d.NCells(), 3], dtype='float32')
-            v1[:, 0] = cells[:, 0] - cells[:, 3]
-            v1[:, 1] = cells[:, 1] - cells[:, 4]
-            v1[:, 2] = cells[:, 2] - cells[:, 5]
-            v2[:, 0] = cells[:, 3] - cells[:, 6]
-            v2[:, 1] = cells[:, 4] - cells[:, 7]
-            v2[:, 2] = cells[:, 5] - cells[:, 8]
-            mesh_normals = np.cross(v1, v2)
-            mesh_normal_length = np.linalg.norm(mesh_normals, axis=1)
-            mesh_normals[:, 0] /= mesh_normal_length[:]
-            mesh_normals[:, 1] /= mesh_normal_length[:]
-            mesh_normals[:, 2] /= mesh_normal_length[:]
-            mesh_d.addCellArray(mesh_normals, 'Normal')
+            mesh_d.compute_normals()
+            normals = mesh_d.celldata['Normals']
 
-            # preprae input
-            points = mesh_d.points().copy()
-            points[:, 0:3] -= mean_cell_centers[0:3]
-            normals = mesh_d.getCellArray('Normal').copy() # need to copy, they use the same memory address
-            barycenters = mesh_d.cellCenters() # don't need to copy
+            # move mesh to origin
+            barycenters = mesh_d.cell_centers() # don't need to copy
             barycenters -= mean_cell_centers[0:3]
 
             #normalized data
@@ -156,7 +135,7 @@ if __name__ == '__main__':
 
             # output downsampled predicted labels
             mesh2 = mesh_d.clone()
-            mesh2.addCellArray(predicted_labels_d, 'Label')
+            mesh2.celldata['Label'] = predicted_labels_d
             vedo.write(mesh2, os.path.join(output_path, '{}_d_predicted.vtp'.format(i_sample[:-4])))
 
             # refinement
@@ -173,9 +152,8 @@ if __name__ == '__main__':
             pairwise = (1 - np.eye(num_classes, dtype=np.int32))
 
             #edges
-            normals = mesh_d.getCellArray('Normal').copy() # need to copy, they use the same memory address
-            cells = original_cells_d.copy()
-            barycenters = mesh_d.cellCenters() # don't need to copy
+            normals = mesh_d.celldata['Normals'].copy() # need to copy, they use the same memory address
+            barycenters = mesh_d.cell_centers() # don't need to copy
             cell_ids = np.asarray(mesh_d.faces())
 
             lambda_c = 30
@@ -205,50 +183,35 @@ if __name__ == '__main__':
 
             # output refined result
             mesh3 = mesh_d.clone()
-            mesh3.addCellArray(refine_labels, 'Label')
+            mesh3.celldata['Label'] = refine_labels
             vedo.write(mesh3, os.path.join(output_path, '{}_d_predicted_refined.vtp'.format(i_sample[:-4])))
 
             # upsampling
             print('\tUpsampling...')
-            if mesh.NCells() > 100000:
-                target_num = 100000 # set max number of cells
-                ratio = target_num/mesh.NCells() # calculate ratio
+            if mesh.ncells > 50000:
+                target_num = 50000 # set max number of cells
+                ratio = target_num/mesh.ncells # calculate ratio
                 mesh.decimate(fraction=ratio)
-                print('Original contains too many cells, simpify to {} cells'.format(mesh.NCells()))
+                print('Original contains too many cells, simpify to {} cells'.format(mesh.ncells))
 
             # get fine_cells
-            cells = np.zeros([mesh.NCells(), 9], dtype='float32')
-            for i in range(len(cells)):
-                cells[i][0], cells[i][1], cells[i][2] = mesh.polydata().GetPoint(mesh.polydata().GetCell(i).GetPointId(0)) # don't need to copy
-                cells[i][3], cells[i][4], cells[i][5] = mesh.polydata().GetPoint(mesh.polydata().GetCell(i).GetPointId(1)) # don't need to copy
-                cells[i][6], cells[i][7], cells[i][8] = mesh.polydata().GetPoint(mesh.polydata().GetCell(i).GetPointId(2)) # don't need to copy
-
-            fine_cells = cells
-
-            barycenters = mesh3.cellCenters() # don't need to copy
-            fine_barycenters = mesh.cellCenters() # don't need to copy
+            barycenters = mesh3.cell_centers() # don't need to copy
+            fine_barycenters = mesh.cell_centers() # don't need to copy
 
             if upsampling_method == 'SVM':
-                #clf = SVC(kernel='rbf', gamma='auto', probability=True, gpu_id=gpu_id)
-                clf = SVC(kernel='rbf', gamma='auto', gpu_id=gpu_id)
+                clf = SVC(kernel='rbf', gamma='auto')
                 # train SVM
-                #clf.fit(mesh2.cells, np.ravel(refine_labels))
-                #fine_labels = clf.predict(fine_cells)
-
                 clf.fit(barycenters, np.ravel(refine_labels))
                 fine_labels = clf.predict(fine_barycenters)
                 fine_labels = fine_labels.reshape(-1, 1)
             elif upsampling_method == 'KNN':
                 neigh = KNeighborsClassifier(n_neighbors=3)
                 # train KNN
-                #neigh.fit(mesh2.cells, np.ravel(refine_labels))
-                #fine_labels = neigh.predict(fine_cells)
-
                 neigh.fit(barycenters, np.ravel(refine_labels))
                 fine_labels = neigh.predict(fine_barycenters)
                 fine_labels = fine_labels.reshape(-1, 1)
 
-            mesh.addCellArray(fine_labels, 'Label')
+            mesh.celldata['Label'] = fine_labels
             vedo.write(mesh, os.path.join(output_path, '{}_predicted_refined.vtp'.format(i_sample[:-4])))
 
             #remove tmp folder
