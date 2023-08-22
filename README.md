@@ -34,8 +34,8 @@ intraoral scans (i.e., meshes) by 1) random rotation, 2) random translation, and
 
 In this work, our intraoral scans are stored as VTP (VTK polygonal data) format.
 To read, write, and manipulate VTP files programmingly, we use **vedo**. Please refer to
-<https://github.com/marcomusy/vedo>. If you need a GUI tool to read, annotate, and save to VTP files, please refer to <https://github.com/Tai-Hsien/Mesh_Labeler>. In our work, we have 36 intraoral
-scans, and all of these scans have been downsampled previously. 
+<https://github.com/marcomusy/vedo>. If you need a GUI tool to read, annotate, modify label, and save VTP files, please refer to <https://github.com/Tai-Hsien/Mesh_Labeler>.
+In this work, we have 36 intraoral scans, and all of these scans have been downsampled previously. 
 We use 24 scans as the training set, 6 scans as the validation set,
 and keep 6 scans as the test set. For training and validation sets, each scan
 (e.g., Sample\_01\_d.vtp) and its flipped (e.g., Sample\_01001\_d.vtp) are augmented
