@@ -27,8 +27,9 @@ if __name__ == '__main__':
         torch.cuda.set_device(utils.get_avail_gpu())
     is_main = not distributed or dist.get_rank() == 0  # only this process logs, validates and saves
 
-    train_list = './train_list.csv'
-    val_list = './val_list.csv'
+    # csv lists of .npz files, see Npz_Mesh_Dataset in Mesh_dataset.py
+    train_list = './data/train_list.csv'
+    val_list = './data/val_list.csv'
 
     model_path = './models/'
     model_name = 'iMeshSegNet_17_classes'  # need to define
@@ -36,8 +37,8 @@ if __name__ == '__main__':
 
     num_classes = 17
     num_channels = 15
-    num_epochs = 200
-    num_workers = 4  # per GPU
+    num_epochs = 100
+    num_workers = 8  # per GPU
     train_batch_size = 4  # per GPU
     val_batch_size = 4
     num_batches_to_print = 20
@@ -47,12 +48,11 @@ if __name__ == '__main__':
     if is_main:
         writer = SummaryWriter(log_dir=os.path.join(model_path, 'runs', model_name))
 
-    training_dataset = Mesh_Dataset(data_list_path=train_list,
-                                    num_classes=num_classes,
-                                    patch_size=9000)
-    val_dataset = Mesh_Dataset(data_list_path=val_list,
-                               num_classes=num_classes,
-                               patch_size=9000)
+    training_dataset = Npz_Mesh_Dataset(data_list_path=train_list,
+                                        patch_size=9000,
+                                        augment=True)
+    val_dataset = Npz_Mesh_Dataset(data_list_path=val_list,
+                                   patch_size=9000)
 
     train_sampler = DistributedSampler(training_dataset) if distributed else None
     train_loader = DataLoader(dataset=training_dataset,
