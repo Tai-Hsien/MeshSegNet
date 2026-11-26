@@ -4,19 +4,22 @@
 This repository started as the PyTorch implementation of **MeshSegNet**
 (*IEEE Transactions on Medical Imaging*,
 <https://ieeexplore.ieee.org/abstract/document/8984309>, and *MICCAI 2019*,
-<https://link.springer.com/chapter/10.1007/978-3-030-32226-7_93>). It now holds
-**iMeshSegNet**, the improved version of MeshSegNet described in
+<https://link.springer.com/chapter/10.1007/978-3-030-32226-7_93>). It now also
+holds **iMeshSegNet**, the improved version of MeshSegNet described in
 <https://ieeexplore.ieee.org/abstract/document/9789163>
 (open access: <https://pmc.ncbi.nlm.nih.gov/articles/PMC10547011/pdf/nihms-1846005.pdf>). Both networks label the teeth on
 digitalized 3D dental surface models acquired by intraoral scanners (IOSs).
 
+MeshSegNet is still available (*meshsegnet.py*), but we recommend using iMeshSegNet
+(*imeshsegnet.py*), which is faster and performs better.
+
 What changed
 ------------
 
-* **Model**: *meshsegnet.py* is replaced by *imeshsegnet.py*. iMeshSegNet builds its
-  neighbourhoods with a k-nearest-neighbour graph inside the network, so the large
-  adjacency matrices (A<sub>S</sub> and A<sub>L</sub>) are no longer computed by the
-  data loader.
+* **Model**: iMeshSegNet (*imeshsegnet.py*) is added and is now the recommended model.
+  It builds its neighbourhoods with a k-nearest-neighbour graph inside the network, so
+  the large adjacency matrices (A<sub>S</sub> and A<sub>L</sub>) are no longer computed
+  by the data loader. MeshSegNet (*meshsegnet.py*) is still available.
 * **Classes**: 17 classes instead of 15 (see [Labels](#labels)). The upper and lower
   arches share the same classes, so one model handles both.
 * **Environment**: packages are managed with [uv](https://docs.astral.sh/uv/)
@@ -129,9 +132,9 @@ labels back to the original resolution (`--upsampling KNN` or `SVM`).
 Previous MeshSegNet model
 -------------------------
 
-The original network is kept in *meshsegnet.py*. It takes the adjacency matrices
+MeshSegNet is still available in *meshsegnet.py*. It takes the adjacency matrices
 A<sub>S</sub> and A<sub>L</sub> as extra inputs. The step 3 to 6 scripts in this version
-only support iMeshSegNet; the scripts and the trained 15-class models for MeshSegNet are
+use iMeshSegNet; the scripts and the trained 15-class models for MeshSegNet are
 available in the git history of this repository.
 
 License
