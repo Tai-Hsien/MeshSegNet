@@ -248,5 +248,5 @@ class iMeshSegNet(nn.Module):
     
 if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = iMeshSegNet(k1=12, k2=24).to(device)
+    model = iMeshSegNet(num_classes=17, num_channels=15, k1=12, k2=24).to(device)
     print(model(torch.rand(2, 15, 9000, device=device)).shape)  # (2, 9000, 17)
