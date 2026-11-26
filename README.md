@@ -22,6 +22,8 @@ What changed
   by the data loader. MeshSegNet (*meshsegnet.py*) is still available.
 * **Classes**: 17 classes instead of 15 (see [Labels](#labels)). The upper and lower
   arches share the same classes, so one model handles both.
+* **Data**: *step1_preprocess.py* converts labeled VTP scans into the *.npz* files and the
+  lists used for training. It replaces *step1_augmentation.py* and *step2_get_list.py*.
 * **Environment**: packages are managed with [uv](https://docs.astral.sh/uv/)
   (*pyproject.toml* and *uv.lock*). *requirements.txt* is removed, and all packages are
   upgraded to versions without known vulnerabilities.
@@ -54,18 +56,40 @@ classes.
 | 1 to 8 | FDI 11 to 18 (upper right) and FDI 31 to 38 (lower left) |
 | 9 to 16 | FDI 21 to 28 (upper left) and FDI 41 to 48 (lower right) |
 
-If you need a GUI tool to read, annotate, and save VTP files, please refer to
-<https://github.com/Tai-Hsien/Mesh_Labeler>.
-
 Training data
 -------------
 
-Unfortunately, we are unable to provide the data.
+Unfortunately, we are unable to provide the data. To train with your own data, prepare one
+folder of labeled scans in VTP (VTK polygonal data) format, one scan per file. The class of
+each cell (see [Labels](#labels)) is stored as cell data named `Label`:
 
-*step3_training.py* reads pre-processed meshes stored as *.npz* files, using
-`Npz_Mesh_Dataset` in *Mesh_dataset.py*. The training and validation lists are CSV files
-with a header line followed by one *.npz* path per line. Each *.npz* file holds one mesh
-downsampled to about 10,000 cells:
+<pre><code>data/raw/
+    scan_001.vtp        # celldata['Label']: 0 = gingiva, 1..16 = teeth
+    scan_002.vtp
+    ...</code></pre>
+
+Upper and lower scans go into the same folder. To read, write, and manipulate VTP files
+programmingly, we use [vedo](https://github.com/marcomusy/vedo). If you need a GUI tool to
+annotate and save VTP files, please refer to <https://github.com/Tai-Hsien/Mesh_Labeler>.
+
+Step 1 Pre-processing
+---------------------
+
+<pre><code>uv run --no-sync python step1_preprocess.py --input-dir data/raw --output-dir data</code></pre>
+
+*step1_preprocess.py* downsamples each scan to about 10,000 cells (`--num-cells`), takes the
+label of each downsampled cell from the nearest original cells, and splits the scans into a
+training and a validation set (`--val-size`, 0.2 by default). Use `--label-name` if your
+cell data has another name. The output is
+
+<pre><code>data/
+    train/scan_001.npz ...
+    val/scan_002.npz ...
+    train_list.csv
+    val_list.csv</code></pre>
+
+The lists are CSV files with a header line followed by one *.npz* path per line. Each
+*.npz* file holds one mesh:
 
 | Key | Shape | Type | Content |
 |-----|-------|------|---------|
@@ -74,15 +98,14 @@ downsampled to about 10,000 cells:
 | normals | (num_cells, 3) | float32 | cell normals |
 | labels | (num_cells,) | uint8 | class of each cell (see [Labels](#labels)) |
 
-The script that creates these *.npz* files is not part of this repository yet.
+The previous *step1_augmentation.py* and *step2_get_list.py* are removed: the random
+rotation is now applied during training, and the lists are written by this step.
 
-*step1_augmentation.py* and *step2_get_list.py* still augment VTP files and write the
-lists for the older VTP-based `Mesh_Dataset`. They do not create *.npz* files.
+Step 3 Training
+---------------
 
-Training
---------
-
-In *step3_training.py*, please define `train_list`, `val_list`, and `model_name`. The
+*step3_training.py* reads the lists written by step 1 (`train_list`, `val_list`) with
+`Npz_Mesh_Dataset` in *Mesh_dataset.py*. Please define `model_name`. The
 number of features is 15, corresponding to cell vertices (9 elements), cell normal vector
 (3 elements), and the relative position (3 elements). During training, all tooth cells
 and randomly selected gingival cells form the 9,000-cell inputs, and each mesh is randomly
@@ -101,17 +124,18 @@ The training curves can be viewed with
 
 <pre><code>uv run --no-sync tensorboard --logdir models/runs</code></pre>
 
-Testing
--------
+Step 4 Testing
+--------------
 
 *step4_test.py* tests a trained model on labeled VTP files and displays the metrics (DSC,
-SEN, PPV). Please define the checkpoint, the path of the test dataset (variable
+SEN, PPV). Unlike step 1, it reads the FDI tooth number of each cell from
+`celldata['FDI_label']` and converts it to the classes itself. Please define the checkpoint, the path of the test dataset (variable
 “*mesh_path*”), and the filenames according to your data.
 
 <pre><code>uv run --no-sync python step4_test.py</code></pre>
 
-Predicting unseen intraoral scans
----------------------------------
+Steps 5 and 6 Predicting unseen intraoral scans
+-----------------------------------------------
 
 *step5_predict.py* predicts the tooth labeling on unseen intraoral scans. Please define the
 checkpoint, the data path, and the filenames in the script.
