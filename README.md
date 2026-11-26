@@ -25,9 +25,8 @@ What changed
   latest checkpoint. Training curves go to TensorBoard instead of visdom.
   *step3_1_continous_training.py* is removed because *step3_training.py* resumes by itself.
 * **Speed**: the losses, the metrics, and the graph-cut post-processing are vectorized.
-* **Checkpoints**: the old 15-class MeshSegNet checkpoints are removed. Two trained
-  17-class iMeshSegNet models (upper and lower) are provided in “*./checkpoints*”
-  (see [Trained models](#trained-models)).
+* **Checkpoints**: the old 15-class MeshSegNet checkpoints are removed. No pre-trained
+  iMeshSegNet checkpoint is included.
 
 Installation
 ------------
@@ -98,23 +97,6 @@ The training curves can be viewed with
 
 <pre><code>uv run --no-sync tensorboard --logdir models/runs</code></pre>
 
-Trained models
---------------
-
-Two trained iMeshSegNet models (17 classes, 15 features) are in “*./checkpoints*”:
-
-* *iMeshSegNet_Upper.tar* for upper arches
-* *iMeshSegNet_Lower.tar* for lower arches
-
-Note that these two models number the teeth along the arch, which differs from the table
-in [Labels](#labels) for classes 1 to 8:
-
-| Class | *iMeshSegNet_Upper.tar* | *iMeshSegNet_Lower.tar* |
-|-------|-------------------------|-------------------------|
-| 0 | gingiva | gingiva |
-| 1 to 8 | FDI 18 to 11 | FDI 38 to 31 |
-| 9 to 16 | FDI 21 to 28 | FDI 41 to 48 |
-
 Testing
 -------
 
@@ -137,9 +119,7 @@ multi-label graph-cut method described in our *IEEE Transactions on Medical Imag
 publication, implemented by the python package [pygco](https://github.com/amueller/gco_python).
 
 <pre><code>uv run --no-sync python step6_predict_with_post_processing_pygco.py \
-    --input scan.stl --model checkpoints/iMeshSegNet_Upper.tar --output outputs</code></pre>
-
-`--model` defaults to *checkpoints/iMeshSegNet_Upper.tar*.
+    --input scan.stl --model models/iMeshSegNet_17_classes_best.tar --output outputs</code></pre>
 
 Both scripts downsample the mesh if the number of cells is larger than 10,000.
 *step5_predict.py* saves the labels of the downsampled mesh. Step 6 also maps the refined
