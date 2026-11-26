@@ -25,8 +25,8 @@ What changed
   latest checkpoint. Training curves go to TensorBoard instead of visdom.
   *step3_1_continous_training.py* is removed because *step3_training.py* resumes by itself.
 * **Speed**: the losses, the metrics, and the graph-cut post-processing are vectorized.
-* **Checkpoints**: no pre-trained iMeshSegNet checkpoint is included. The two trained
-  MeshSegNet models are kept (see [Previous MeshSegNet model](#previous-meshsegnet-model)).
+* **Checkpoints**: the old 15-class MeshSegNet checkpoints are removed. No pre-trained
+  iMeshSegNet checkpoint is included.
 
 Installation
 ------------
@@ -128,23 +128,10 @@ labels back to the original resolution (`--upsampling KNN` or `SVM`).
 Previous MeshSegNet model
 -------------------------
 
-The original network (*meshsegnet.py*) and its two trained models (15 classes: second
-molar to second molar and gingiva) are kept in “*./models*”:
-
-* *MeshSegNet_Max_15_classes_72samples_lr1e-2_best.zip* (upper)
-* *MeshSegNet_Man_15_classes_72samples_lr1e-2_best.zip* (lower)
-
-<pre><code>import torch
-from meshsegnet import MeshSegNet
-
-model = MeshSegNet(num_classes=15, num_channels=15)
-checkpoint = torch.load('models/MeshSegNet_Max_15_classes_72samples_lr1e-2_best.zip',
-                        map_location='cpu', weights_only=True)
-model.load_state_dict(checkpoint['model_state_dict'])</code></pre>
-
-MeshSegNet takes the adjacency matrices A<sub>S</sub> and A<sub>L</sub> as extra inputs.
-The step 3 to 6 scripts in this version only support iMeshSegNet; the scripts for
-MeshSegNet are available in the git history of this repository.
+The original network is kept in *meshsegnet.py*. It takes the adjacency matrices
+A<sub>S</sub> and A<sub>L</sub> as extra inputs. The step 3 to 6 scripts in this version
+only support iMeshSegNet; the scripts and the trained 15-class models for MeshSegNet are
+available in the git history of this repository.
 
 License
 --------
