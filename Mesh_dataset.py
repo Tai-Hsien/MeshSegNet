@@ -3,17 +3,16 @@ import pandas as pd
 import torch
 import numpy as np
 from vedo import *
-from scipy.spatial import distance_matrix
 
 class Mesh_Dataset(Dataset):
-    def __init__(self, data_list_path, num_classes=15, patch_size=7000):
+    def __init__(self, data_list_path, num_classes=17, patch_size=9000):
         """
         Args:
             h5_path (string): Path to the txt file with h5 files.
             transform (callable, optional): Optional transform to be applied
                 on a sample.
         """
-        self.data_list = pd.read_csv(data_list_path, header=None)
+        self.data_list = pd.read_csv(data_list_path)
         self.num_classes = num_classes
         self.patch_size = patch_size
 
@@ -24,52 +23,25 @@ class Mesh_Dataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        i_mesh = self.data_list.iloc[idx][0] #vtk file name
+        i_mesh = self.data_list.iloc[idx, 0] #vtk file name
 
         # read vtk
         mesh = load(i_mesh)
-        labels = mesh.celldata['Label'].astype('int32').reshape(-1, 1)
+        # FDI_label = mesh.celldata['FDI_label']#.astype('int32').reshape(-1, 1)
+        labels = np.zeros([mesh.ncells], dtype=np.int32)
+        FDI2label = {11: 1, 12: 2, 13: 3, 14: 4, 15: 5, 16: 6, 17: 7, 18: 8,
+                     21: 9, 22: 10, 23: 11, 24: 12, 25: 13, 26: 14, 27: 15, 28: 16,
+                     31: 1, 32: 2, 33: 3, 34: 4, 35: 5, 36: 6, 37: 7, 38: 8,
+                     41: 9, 42: 10, 43: 11, 44: 12, 45: 13, 46: 14, 47: 15, 48: 16}
+        for i_label in list(FDI2label.keys()):
+            labels[mesh.celldata['FDI_label']==i_label] = FDI2label[i_label]
 
-        # new way
-        # move mesh to origin
-        points = mesh.points()
-        mean_cell_centers = mesh.center_of_mass()
-        points[:, 0:3] -= mean_cell_centers[0:3]
-
-        ids = np.array(mesh.faces())
-        cells = points[ids].reshape(mesh.ncells, 9).astype(dtype='float32')
-
-        # customized normal calculation; the vtk/vedo build-in function will change number of points
-        mesh.compute_normals()
-        normals = mesh.celldata['Normals']
-
-        # move mesh to origin
-        barycenters = mesh.cell_centers() # don't need to copy
-        barycenters -= mean_cell_centers[0:3]
-
-        #normalized data
-        maxs = points.max(axis=0)
-        mins = points.min(axis=0)
-        means = points.mean(axis=0)
-        stds = points.std(axis=0)
-        nmeans = normals.mean(axis=0)
-        nstds = normals.std(axis=0)
-
-        for i in range(3):
-            cells[:, i] = (cells[:, i] - means[i]) / stds[i] #point 1
-            cells[:, i+3] = (cells[:, i+3] - means[i]) / stds[i] #point 2
-            cells[:, i+6] = (cells[:, i+6] - means[i]) / stds[i] #point 3
-            barycenters[:,i] = (barycenters[:,i] - mins[i]) / (maxs[i]-mins[i])
-            normals[:,i] = (normals[:,i] - nmeans[i]) / nstds[i]
-
-        X = np.column_stack((cells, barycenters, normals))
-        Y = labels
+        X = np.column_stack((mesh.celldata['Input_Features'][:, 0:9], mesh.celldata['Normalized_Barycenters'], mesh.celldata['Normalized_Normals']))
+        Y = labels.reshape(-1, 1)
 
         # initialize batch of input and label
         X_train = np.zeros([self.patch_size, X.shape[1]], dtype='float32')
         Y_train = np.zeros([self.patch_size, Y.shape[1]], dtype='int32')
-        S1 = np.zeros([self.patch_size, self.patch_size], dtype='float32')
-        S2 = np.zeros([self.patch_size, self.patch_size], dtype='float32')
 
         # calculate number of valid cells (tooth instead of gingiva)
         positive_idx = np.argwhere(labels>0)[:, 0] #tooth idx
@@ -91,27 +63,19 @@ class Mesh_Dataset(Dataset):
         X_train[:] = X[selected_idx, :]
         Y_train[:] = Y[selected_idx, :]
 
-        if  torch.cuda.is_available():
-            TX = torch.as_tensor(X_train[:, 9:12], device='cuda')
-            TD = torch.cdist(TX, TX)
-            D = TD.cpu().numpy()
-        else:
-            D = distance_matrix(X_train[:, 9:12], X_train[:, 9:12])
-
-        S1[D<0.1] = 1.0
-        S1 = S1 / np.dot(np.sum(S1, axis=1, keepdims=True), np.ones((1, self.patch_size)))
-
-        S2[D<0.2] = 1.0
-        S2 = S2 / np.dot(np.sum(S2, axis=1, keepdims=True), np.ones((1, self.patch_size)))
-
         X_train = X_train.transpose(1, 0)
         Y_train = Y_train.transpose(1, 0)
 
-        sample = {'cells': torch.from_numpy(X_train), 'labels': torch.from_numpy(Y_train),
-                  'A_S': torch.from_numpy(S1), 'A_L': torch.from_numpy(S2)}
+        sample = {'cells': torch.from_numpy(X_train), 'labels': torch.from_numpy(Y_train)}
 
         return sample
 
 if __name__ == '__main__':
-    dataset = Mesh_Dataset('./train_list_1.csv')
+    import time
+    dataset = Mesh_Dataset('./train_list.csv')
+    start_time = time.time()
     print(dataset.__getitem__(0))
+    print(dataset.__getitem__(0)['cells'].shape)
+    end_time = time.time()
+    total_time = end_time - start_time
+    print("---Label has been refined: {} seconds ---".format(total_time))
