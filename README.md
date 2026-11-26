@@ -6,7 +6,8 @@ This repository started as the PyTorch implementation of **MeshSegNet**
 <https://ieeexplore.ieee.org/abstract/document/8984309>, and *MICCAI 2019*,
 <https://link.springer.com/chapter/10.1007/978-3-030-32226-7_93>). It now holds
 **iMeshSegNet**, the improved version of MeshSegNet described in
-<https://ieeexplore.ieee.org/document/9775592>. Both networks label the teeth on
+<https://ieeexplore.ieee.org/abstract/document/9789163>
+(open access: <https://pmc.ncbi.nlm.nih.gov/articles/PMC10547011/pdf/nihms-1846005.pdf>). Both networks label the teeth on
 digitalized 3D dental surface models acquired by intraoral scanners (IOSs).
 
 What changed
