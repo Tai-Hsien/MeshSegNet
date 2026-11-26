@@ -16,8 +16,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='iMeshSegNet prediction with pygco post-processing')
     parser.add_argument('--input', '-i', nargs='+', required=True, help='Input mesh file(s) (e.g. *.stl *.vtp)')
-    parser.add_argument('--model', default='checkpoints/iMeshSegNet_Upper.zip',
-                        help='Path to model checkpoint (default: checkpoints/iMeshSegNet_Upper.zip)')
+    parser.add_argument('--model', default='checkpoints/iMeshSegNet_Upper.tar',
+                        help='Path to model checkpoint (default: checkpoints/iMeshSegNet_Upper.tar)')
     parser.add_argument('--output', '-o', default='outputs',
                         help='Output folder for all products (default: outputs/). Must be a folder, not a file.')
     parser.add_argument('--num-classes', type=int, default=17)
