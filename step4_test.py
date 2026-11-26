@@ -25,11 +25,6 @@ if __name__ == '__main__':
     num_classes = 17
     num_channels = 15
 
-    FDI2label = {11: 1, 12: 2, 13: 3, 14: 4, 15: 5, 16: 6, 17: 7, 18: 8,
-                 21: 9, 22: 10, 23: 11, 24: 12, 25: 13, 26: 14, 27: 15, 28: 16,
-                 31: 1, 32: 2, 33: 3, 34: 4, 35: 5, 36: 6, 37: 7, 38: 8,
-                 41: 9, 42: 10, 43: 11, 44: 12, 45: 13, 46: 14, 47: 15, 48: 16}
-
     # set model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = iMeshSegNet(num_classes=num_classes, num_channels=num_channels).to(device, dtype=torch.float)
@@ -57,10 +52,7 @@ if __name__ == '__main__':
             print('Predicting Sample filename: {}'.format(test_mesh_filename.format(i_sample)))
             # read image and label (annotation)
             mesh = vedo.load(os.path.join(mesh_path, test_mesh_filename.format(i_sample)))
-            labels = np.zeros([mesh.ncells], dtype=np.int32)
-            for fdi, cls in FDI2label.items():
-                labels[mesh.celldata['FDI_label'] == fdi] = cls
-            labels = labels.reshape(-1, 1)
+            labels = mesh.celldata['Label'].astype('int32').reshape(-1, 1)  # same classes as step 1
             predicted_labels = np.zeros(labels.shape)
 
             # move mesh to origin

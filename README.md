@@ -128,8 +128,8 @@ Step 4 Testing
 --------------
 
 *step4_test.py* tests a trained model on labeled VTP files and displays the metrics (DSC,
-SEN, PPV). Unlike step 1, it reads the FDI tooth number of each cell from
-`celldata['FDI_label']` and converts it to the classes itself. Please define the checkpoint, the path of the test dataset (variable
+SEN, PPV). The VTP files are labeled in the same way as the raw data of step 1
+(`celldata['Label']`). Please define the checkpoint, the path of the test dataset (variable
 “*mesh_path*”), and the filenames according to your data.
 
 <pre><code>uv run --no-sync python step4_test.py</code></pre>
