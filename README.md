@@ -25,10 +25,8 @@ What changed
   latest checkpoint. Training curves go to TensorBoard instead of visdom.
   *step3_1_continous_training.py* is removed because *step3_training.py* resumes by itself.
 * **Speed**: the losses, the metrics, and the graph-cut post-processing are vectorized.
-* **Checkpoints**: the old MeshSegNet checkpoints are removed, since they do not fit the
-  new model. No pre-trained iMeshSegNet checkpoint is included.
-
-The original MeshSegNet code is still available in the git history of this repository.
+* **Checkpoints**: no pre-trained iMeshSegNet checkpoint is included. The two trained
+  MeshSegNet models are kept (see [Previous MeshSegNet model](#previous-meshsegnet-model)).
 
 Installation
 ------------
@@ -126,6 +124,27 @@ publication, implemented by the python package [pygco](https://github.com/amuell
 Both scripts downsample the mesh if the number of cells is larger than 10,000.
 *step5_predict.py* saves the labels of the downsampled mesh. Step 6 also maps the refined
 labels back to the original resolution (`--upsampling KNN` or `SVM`).
+
+Previous MeshSegNet model
+-------------------------
+
+The original network (*meshsegnet.py*) and its two trained models (15 classes: second
+molar to second molar and gingiva) are kept in “*./models*”:
+
+* *MeshSegNet_Max_15_classes_72samples_lr1e-2_best.zip* (upper)
+* *MeshSegNet_Man_15_classes_72samples_lr1e-2_best.zip* (lower)
+
+<pre><code>import torch
+from meshsegnet import MeshSegNet
+
+model = MeshSegNet(num_classes=15, num_channels=15)
+checkpoint = torch.load('models/MeshSegNet_Max_15_classes_72samples_lr1e-2_best.zip',
+                        map_location='cpu', weights_only=True)
+model.load_state_dict(checkpoint['model_state_dict'])</code></pre>
+
+MeshSegNet takes the adjacency matrices A<sub>S</sub> and A<sub>L</sub> as extra inputs.
+The step 3 to 6 scripts in this version only support iMeshSegNet; the scripts for
+MeshSegNet are available in the git history of this repository.
 
 License
 --------
