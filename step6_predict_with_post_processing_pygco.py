@@ -1,222 +1,197 @@
 import os
+import argparse
 import numpy as np
 import torch
 import torch.nn as nn
-from meshsegnet import *
+from imeshsegnet import *
 import vedo
-import pandas as pd
 from losses_and_metrics_for_mesh import *
-from scipy.spatial import distance_matrix
-import scipy.io as sio
-import shutil
 import time
-from sklearn.svm import SVC # uncomment this line if you don't install thudersvm
-# from thundersvm import SVC 
+from sklearn.svm import SVC  # replace with: from thundersvm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from pygco import cut_from_graph
 import utils
 
 if __name__ == '__main__':
 
-    gpu_id = utils.get_avail_gpu()
-    torch.cuda.set_device(gpu_id) # assign which gpu will be used (only linux works)
+    parser = argparse.ArgumentParser(description='iMeshSegNet prediction with pygco post-processing')
+    parser.add_argument('--input', '-i', nargs='+', required=True, help='Input mesh file(s) (e.g. *.stl *.vtp)')
+    parser.add_argument('--model', default='models/iMeshSegNet_17_classes_best.tar',
+                        help='Path to model checkpoint (default: models/iMeshSegNet_17_classes_best.tar)')
+    parser.add_argument('--output', '-o', default='outputs',
+                        help='Output folder for all products (default: outputs/). Must be a folder, not a file.')
+    parser.add_argument('--num-classes', type=int, default=17)
+    parser.add_argument('--num-channels', type=int, default=15)
+    parser.add_argument('--upsampling', choices=['KNN', 'SVM'], default='KNN',
+                        help='Upsampling method (default: KNN)')
+    args = parser.parse_args()
 
-    # upsampling_method = 'SVM'
-    upsampling_method = 'KNN'
+    if os.path.exists(args.output) and not os.path.isdir(args.output):
+        parser.error('--output must be a folder, not a file: {}'.format(args.output))
+    os.makedirs(args.output, exist_ok=True)
 
-    model_path = './models'
-    model_name = 'MeshSegNet_Max_15_classes_72samples_lr1e-2_best.zip'
+    if torch.cuda.is_available():
+        torch.cuda.set_device(utils.get_avail_gpu())
 
-    mesh_path = './'  # need to modify
-    sample_filenames = ['Example.stl'] # need to modify
-    output_path = './outputs'
-    if not os.path.exists(output_path):
-        os.mkdir(output_path)
+    upsampling_method = args.upsampling
+    num_classes = args.num_classes
+    num_channels = args.num_channels
 
-    num_classes = 15
-    num_channels = 15
-
-    # set model
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = MeshSegNet(num_classes=num_classes, num_channels=num_channels).to(device, dtype=torch.float)
+    model = iMeshSegNet(num_classes=num_classes, num_channels=num_channels).to(device, dtype=torch.float)
 
-    # load trained model
-    checkpoint = torch.load(os.path.join(model_path, model_name), map_location='cpu')
+    checkpoint = torch.load(args.model, map_location='cpu', weights_only=True)
     model.load_state_dict(checkpoint['model_state_dict'])
     del checkpoint
     model = model.to(device, dtype=torch.float)
 
-    #cudnn
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.enabled = True
 
-
-    # Predicting
     model.eval()
     with torch.no_grad():
-        for i_sample in sample_filenames:
+        for input_path in args.input:
 
             start_time = time.time()
-            # create tmp folder
-            tmp_path = './.tmp/'
-            if not os.path.exists(tmp_path):
-                os.makedirs(tmp_path)
+            sample_name = os.path.splitext(os.path.basename(input_path))[0]
+            output_dir = args.output
+            output_file = os.path.join(output_dir, '{}_predicted_refined.vtp'.format(sample_name))
 
-            print('Predicting Sample filename: {}'.format(i_sample))
-            # read image and label (annotation)
-            mesh = vedo.load(os.path.join(mesh_path, i_sample))
+            print('Predicting: {}'.format(input_path))
+            mesh = vedo.load(input_path)
 
-            # pre-processing: downsampling
+            # downsampling
             print('\tDownsampling...')
             target_num = 10000
-            ratio = target_num/mesh.ncells # calculate ratio
-            mesh_d = mesh.clone()
-            mesh_d.decimate(fraction=ratio)
+            if mesh.ncells > target_num:
+                ratio = target_num / mesh.ncells
+                mesh_d = mesh.clone()
+                mesh_d.decimate(fraction=ratio)
+            else:
+                mesh_d = mesh.clone()
             predicted_labels_d = np.zeros([mesh_d.ncells, 1], dtype=np.int32)
 
             # move mesh to origin
             print('\tPredicting...')
-            points = mesh_d.points()
-            mean_cell_centers = mesh_d.center_of_mass()
-            points[:, 0:3] -= mean_cell_centers[0:3]
+            vertices = mesh_d.vertices  # view; -= centers the mesh in-place
+            mean_center = mesh_d.center_of_mass()
+            vertices -= mean_center
 
-            ids = np.array(mesh_d.faces())
-            cells = points[ids].reshape(mesh_d.ncells, 9).astype(dtype='float32')
+            ids = np.array(mesh_d.cells)
+            cells = vertices[ids].reshape(mesh_d.ncells, 9).astype(dtype='float32')
 
-            # customized normal calculation; the vtk/vedo build-in function will change number of points
             mesh_d.compute_normals()
-            normals = mesh_d.celldata['Normals']
+            # copy before normalization so raw unit normals are preserved for edge costs
+            raw_normals = mesh_d.celldata['Normals'].copy()
+            normals = raw_normals.copy()
 
-            # move mesh to origin
-            barycenters = mesh_d.cell_centers() # don't need to copy
-            barycenters -= mean_cell_centers[0:3]
+            barycenters = vertices[ids].mean(axis=1).astype('float32')
+            raw_barycenters = barycenters.copy()  # un-normalized; used for edge distances
 
-            #normalized data
-            maxs = points.max(axis=0)
-            mins = points.min(axis=0)
-            means = points.mean(axis=0)
-            stds = points.std(axis=0)
+            maxs = vertices.max(axis=0)
+            mins = vertices.min(axis=0)
+            means = vertices.mean(axis=0)
+            stds = vertices.std(axis=0)
             nmeans = normals.mean(axis=0)
             nstds = normals.std(axis=0)
 
             for i in range(3):
-                cells[:, i] = (cells[:, i] - means[i]) / stds[i] #point 1
-                cells[:, i+3] = (cells[:, i+3] - means[i]) / stds[i] #point 2
-                cells[:, i+6] = (cells[:, i+6] - means[i]) / stds[i] #point 3
-                barycenters[:,i] = (barycenters[:,i] - mins[i]) / (maxs[i]-mins[i])
-                normals[:,i] = (normals[:,i] - nmeans[i]) / nstds[i]
+                cells[:, i] = (cells[:, i] - means[i]) / stds[i]
+                cells[:, i+3] = (cells[:, i+3] - means[i]) / stds[i]
+                cells[:, i+6] = (cells[:, i+6] - means[i]) / stds[i]
+                barycenters[:, i] = (barycenters[:, i] - mins[i]) / (maxs[i] - mins[i])
+                normals[:, i] = (normals[:, i] - nmeans[i]) / nstds[i]
 
             X = np.column_stack((cells, barycenters, normals))
-
-            # computing A_S and A_L
-            A_S = np.zeros([X.shape[0], X.shape[0]], dtype='float32')
-            A_L = np.zeros([X.shape[0], X.shape[0]], dtype='float32')
-            D = distance_matrix(X[:, 9:12], X[:, 9:12])
-            A_S[D<0.1] = 1.0
-            A_S = A_S / np.dot(np.sum(A_S, axis=1, keepdims=True), np.ones((1, X.shape[0])))
-
-            A_L[D<0.2] = 1.0
-            A_L = A_L / np.dot(np.sum(A_L, axis=1, keepdims=True), np.ones((1, X.shape[0])))
-
-            # numpy -> torch.tensor
             X = X.transpose(1, 0)
             X = X.reshape([1, X.shape[0], X.shape[1]])
             X = torch.from_numpy(X).to(device, dtype=torch.float)
-            A_S = A_S.reshape([1, A_S.shape[0], A_S.shape[1]])
-            A_L = A_L.reshape([1, A_L.shape[0], A_L.shape[1]])
-            A_S = torch.from_numpy(A_S).to(device, dtype=torch.float)
-            A_L = torch.from_numpy(A_L).to(device, dtype=torch.float)
 
-            tensor_prob_output = model(X, A_S, A_L).to(device, dtype=torch.float)
+            tensor_prob_output = model(X).to(device, dtype=torch.float)
             patch_prob_output = tensor_prob_output.cpu().numpy()
 
             for i_label in range(num_classes):
-                predicted_labels_d[np.argmax(patch_prob_output[0, :], axis=-1)==i_label] = i_label
+                predicted_labels_d[np.argmax(patch_prob_output[0, :], axis=-1) == i_label] = i_label
 
-            # output downsampled predicted labels
             mesh2 = mesh_d.clone()
             mesh2.celldata['Label'] = predicted_labels_d
-            vedo.write(mesh2, os.path.join(output_path, '{}_d_predicted.vtp'.format(i_sample[:-4])))
+            vedo.write(mesh2, os.path.join(output_dir, '{}_d_predicted.vtp'.format(sample_name)))
 
-            # refinement
+            # pygco refinement
             print('\tRefining by pygco...')
             round_factor = 100
-            patch_prob_output[patch_prob_output<1.0e-6] = 1.0e-6
+            patch_prob_output[patch_prob_output < 1.0e-6] = 1.0e-6
 
-            # unaries
             unaries = -round_factor * np.log10(patch_prob_output)
             unaries = unaries.astype(np.int32)
             unaries = unaries.reshape(-1, num_classes)
 
-            # parawise
             pairwise = (1 - np.eye(num_classes, dtype=np.int32))
 
-            #edges
-            normals = mesh_d.celldata['Normals'].copy() # need to copy, they use the same memory address
-            barycenters = mesh_d.cell_centers() # don't need to copy
-            cell_ids = np.asarray(mesh_d.faces())
+            cell_ids = np.array(mesh_d.cells)
 
             lambda_c = 30
-            edges = np.empty([1, 3], order='C')
-            for i_node in range(cells.shape[0]):
-                # Find neighbors
-                nei = np.sum(np.isin(cell_ids, cell_ids[i_node, :]), axis=1)
-                nei_id = np.where(nei==2)
-                for i_nei in nei_id[0][:]:
-                    if i_node < i_nei:
-                        cos_theta = np.dot(normals[i_node, 0:3], normals[i_nei, 0:3])/np.linalg.norm(normals[i_node, 0:3])/np.linalg.norm(normals[i_nei, 0:3])
-                        if cos_theta >= 1.0:
-                            cos_theta = 0.9999
-                        theta = np.arccos(cos_theta)
-                        phi = np.linalg.norm(barycenters[i_node, :] - barycenters[i_nei, :])
-                        if theta > np.pi/2.0:
-                            edges = np.concatenate((edges, np.array([i_node, i_nei, -np.log10(theta/np.pi)*phi]).reshape(1, 3)), axis=0)
-                        else:
-                            beta = 1 + np.linalg.norm(np.dot(normals[i_node, 0:3], normals[i_nei, 0:3]))
-                            edges = np.concatenate((edges, np.array([i_node, i_nei, -beta*np.log10(theta/np.pi)*phi]).reshape(1, 3)), axis=0)
-            edges = np.delete(edges, 0, 0)
-            edges[:, 2] *= lambda_c*round_factor
+            # neighbors = cells sharing exactly one edge (two vertices)
+            cell_edges = np.sort(cell_ids[:, [0, 1, 1, 2, 2, 0]].reshape(-1, 2), axis=1)
+            order = np.lexsort((cell_edges[:, 1], cell_edges[:, 0]))
+            cell_edges = cell_edges[order]
+            owner = order // 3  # cell that each sorted edge belongs to
+            pairs = []
+            shift = 1  # >1 only matters for edges shared by more than two cells
+            while True:
+                same = (cell_edges[:-shift] == cell_edges[shift:]).all(axis=1)
+                if not same.any():
+                    break
+                pairs.append(np.column_stack((owner[:-shift][same], owner[shift:][same])))
+                shift += 1
+            pairs = np.sort(np.concatenate(pairs), axis=1)
+            pairs, num_shared = np.unique(pairs, axis=0, return_counts=True)
+            pairs = pairs[(num_shared == 1) & (pairs[:, 0] != pairs[:, 1])]
+            i_node, i_nei = pairs[:, 0], pairs[:, 1]
+
+            n_dot = (raw_normals[i_node] * raw_normals[i_nei]).sum(axis=1)
+            cos_theta = (n_dot / np.linalg.norm(raw_normals[i_node], axis=1) /
+                         np.linalg.norm(raw_normals[i_nei], axis=1))
+            cos_theta = np.clip(cos_theta, -1.0, 0.9999)
+            theta = np.maximum(np.arccos(cos_theta), 1.0e-6)  # guard log10(0)
+            phi = np.linalg.norm(raw_barycenters[i_node] - raw_barycenters[i_nei], axis=1)
+            beta = np.where(theta > np.pi / 2.0, 1.0, 1 + np.abs(n_dot))
+            w = -beta * np.log10(theta / np.pi) * phi
+            edges = np.column_stack((i_node, i_nei, w)).astype(np.float64)
+            edges[:, 2] *= lambda_c * round_factor
             edges = edges.astype(np.int32)
 
             refine_labels = cut_from_graph(edges, unaries, pairwise)
             refine_labels = refine_labels.reshape([-1, 1])
 
-            # output refined result
             mesh3 = mesh_d.clone()
             mesh3.celldata['Label'] = refine_labels
-            vedo.write(mesh3, os.path.join(output_path, '{}_d_predicted_refined.vtp'.format(i_sample[:-4])))
+            vedo.write(mesh3, os.path.join(output_dir, '{}_d_predicted_refined.vtp'.format(sample_name)))
 
-            # upsampling
+            # upsampling to original resolution
             print('\tUpsampling...')
             if mesh.ncells > 50000:
-                target_num = 50000 # set max number of cells
-                ratio = target_num/mesh.ncells # calculate ratio
+                ratio = 50000 / mesh.ncells
                 mesh.decimate(fraction=ratio)
-                print('Original contains too many cells, simpify to {} cells'.format(mesh.ncells))
+                print('\tOriginal contains too many cells, simplified to {} cells'.format(mesh.ncells))
 
-            # get fine_cells
-            barycenters = mesh3.cell_centers() # don't need to copy
-            fine_barycenters = mesh.cell_centers() # don't need to copy
+            # both sets of barycenters must be in the same centered coordinate frame
+            barycenters = raw_barycenters
+            orig_ids = np.array(mesh.cells)
+            fine_barycenters = (np.array(mesh.vertices) - mean_center)[orig_ids].mean(axis=1)
 
             if upsampling_method == 'SVM':
                 clf = SVC(kernel='rbf', gamma='auto')
-                # train SVM
                 clf.fit(barycenters, np.ravel(refine_labels))
-                fine_labels = clf.predict(fine_barycenters)
-                fine_labels = fine_labels.reshape(-1, 1)
+                fine_labels = clf.predict(fine_barycenters).reshape(-1, 1)
             elif upsampling_method == 'KNN':
-                neigh = KNeighborsClassifier(n_neighbors=3)
-                # train KNN
+                neigh = KNeighborsClassifier(n_neighbors=3, weights='distance')
                 neigh.fit(barycenters, np.ravel(refine_labels))
-                fine_labels = neigh.predict(fine_barycenters)
-                fine_labels = fine_labels.reshape(-1, 1)
+                fine_labels = neigh.predict(fine_barycenters).reshape(-1, 1)
 
             mesh.celldata['Label'] = fine_labels
-            vedo.write(mesh, os.path.join(output_path, '{}_predicted_refined.vtp'.format(i_sample[:-4])))
-
-            #remove tmp folder
-            shutil.rmtree(tmp_path)
+            vedo.write(mesh, output_file)
 
             end_time = time.time()
-            print('Sample filename: {} completed'.format(i_sample))
-            print('\tcomputing time: {0:.2f} sec'.format(end_time-start_time))
+            print('{} completed'.format(input_path))
+            print('\tcomputing time: {0:.2f} sec'.format(end_time - start_time))

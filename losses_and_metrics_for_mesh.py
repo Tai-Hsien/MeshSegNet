@@ -10,22 +10,16 @@ def weighting_DSC(y_pred, y_true, class_weights, smooth = 1.0):
         smooth = 1.0
     '''
     smooth = 1.
-    mdsc = 0.0
-    n_classes = y_pred.shape[-1] 
 
     # convert probability to one-hot code    
     max_idx = torch.argmax(y_pred, dim=-1, keepdim=True)
     one_hot = torch.zeros_like(y_pred)
     one_hot.scatter_(-1, max_idx, 1)
 
-    for c in range(0, n_classes):
-        pred_flat = one_hot[:, :, c].reshape(-1)
-        true_flat = y_true[:, :, c].reshape(-1)
-        intersection = (pred_flat * true_flat).sum()
-        w = class_weights[c]/class_weights.sum()
-        mdsc += w*((2. * intersection + smooth) / (pred_flat.sum() + true_flat.sum() + smooth))
-        
-    return mdsc
+    # all classes at once: sum over batch and cells, keep the class axis
+    intersection = (one_hot * y_true).sum(dim=(0, 1))
+    w = class_weights / class_weights.sum()
+    return (w * (2. * intersection + smooth) / (one_hot.sum(dim=(0, 1)) + y_true.sum(dim=(0, 1)) + smooth)).sum()
 
 
 def weighting_SEN(y_pred, y_true, class_weights, smooth = 1.0):
@@ -37,22 +31,16 @@ def weighting_SEN(y_pred, y_true, class_weights, smooth = 1.0):
         smooth = 1.0
     '''
     smooth = 1.
-    msen = 0.0
-    n_classes = y_pred.shape[-1] 
 
     # convert probability to one-hot code    
     max_idx = torch.argmax(y_pred, dim=-1, keepdim=True)
     one_hot = torch.zeros_like(y_pred)
     one_hot.scatter_(-1, max_idx, 1)
 
-    for c in range(0, n_classes):
-        pred_flat = one_hot[:, :, c].reshape(-1)
-        true_flat = y_true[:, :, c].reshape(-1)
-        intersection = (pred_flat * true_flat).sum()
-        w = class_weights[c]/class_weights.sum()
-        msen += w*((intersection + smooth) / (true_flat.sum() + smooth))
-        
-    return msen
+    # all classes at once: sum over batch and cells, keep the class axis
+    intersection = (one_hot * y_true).sum(dim=(0, 1))
+    w = class_weights / class_weights.sum()
+    return (w * (intersection + smooth) / (y_true.sum(dim=(0, 1)) + smooth)).sum()
 
 
 def weighting_PPV(y_pred, y_true, class_weights, smooth = 1.0):
@@ -64,22 +52,16 @@ def weighting_PPV(y_pred, y_true, class_weights, smooth = 1.0):
         smooth = 1.0
     '''
     smooth = 1.
-    mppv = 0.0
-    n_classes = y_pred.shape[-1] 
 
     # convert probability to one-hot code    
     max_idx = torch.argmax(y_pred, dim=-1, keepdim=True)
     one_hot = torch.zeros_like(y_pred)
     one_hot.scatter_(-1, max_idx, 1)
 
-    for c in range(0, n_classes):
-        pred_flat = one_hot[:, :, c].reshape(-1)
-        true_flat = y_true[:, :, c].reshape(-1)
-        intersection = (pred_flat * true_flat).sum()
-        w = class_weights[c]/class_weights.sum()
-        mppv += w*((intersection + smooth) / (pred_flat.sum() + smooth))
-        
-    return mppv
+    # all classes at once: sum over batch and cells, keep the class axis
+    intersection = (one_hot * y_true).sum(dim=(0, 1))
+    w = class_weights / class_weights.sum()
+    return (w * (intersection + smooth) / (one_hot.sum(dim=(0, 1)) + smooth)).sum()
 
    
 def Generalized_Dice_Loss(y_pred, y_true, class_weights, smooth = 1.0):
@@ -91,20 +73,12 @@ def Generalized_Dice_Loss(y_pred, y_true, class_weights, smooth = 1.0):
         smooth = 1.0
     '''
     smooth = 1.
-    loss = 0.
-    n_classes = y_pred.shape[-1]
-    
-    for c in range(0, n_classes):
-        pred_flat = y_pred[:, :, c].reshape(-1)
-        true_flat = y_true[:, :, c].reshape(-1)
-        intersection = (pred_flat * true_flat).sum()
-       
-        # with weight
-        w = class_weights[c]/class_weights.sum()
-        loss += w*(1 - ((2. * intersection + smooth) /
-                         (pred_flat.sum() + true_flat.sum() + smooth)))
-       
-    return loss
+
+    # all classes at once: sum over batch and cells, keep the class axis
+    intersection = (y_pred * y_true).sum(dim=(0, 1))
+    w = class_weights / class_weights.sum()
+    return (w * (1 - (2. * intersection + smooth) /
+                 (y_pred.sum(dim=(0, 1)) + y_true.sum(dim=(0, 1)) + smooth))).sum()
 
 
 def DSC(y_pred, y_true, ignore_background=True, smooth = 1.0):

@@ -1,0 +1,50 @@
+[project]
+name = "imeshsegnet"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "scikit-learn>=1.4",
+    "vedo>=2024.5",
+    "pygco",
+    "tensorboard",
+]
+
+# Install CPU PyTorch:  uv sync --extra cpu
+# Install CUDA PyTorch: uv sync --extra cuda
+[project.optional-dependencies]
+cpu = [
+    "torch>=2.13.0",
+]
+cuda = [
+    "torch>=2.13.0",
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", extra = "cpu" },
+    { index = "pytorch-cu126", extra = "cuda" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[tool.uv]
+# pygco has no pyproject.toml and its setup.py imports Cython/numpy at build
+# time, which a default isolated build env lacks. Inject them (plus the
+# setuptools/wheel build backend) into pygco's isolated build environment.
+extra-build-dependencies = { pygco = ["setuptools", "wheel", "cython", "numpy"] }
+conflicts = [
+    [
+        { extra = "cpu" },
+        { extra = "cuda" },
+    ],
+]
