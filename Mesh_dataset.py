@@ -1,3 +1,4 @@
+import os
 from torch.utils.data import Dataset
 import pandas as pd
 import torch
@@ -6,7 +7,7 @@ import numpy as np
 class Npz_Mesh_Dataset(Dataset):
     """
     Reads pre-processed meshes stored as .npz files. data_list_path is a csv file with a header
-    line followed by one .npz path per line. Each .npz file holds one mesh (about 10,000 cells):
+    line followed by one .npz path per line (absolute, or relative to the folder of the csv file). Each .npz file holds one mesh (about 10,000 cells):
         points  (num_points, 3) float32  vertex coordinates
         faces   (num_cells, 3)  int32    vertex ids of each triangle
         normals (num_cells, 3)  float32  cell normals
@@ -22,6 +23,7 @@ class Npz_Mesh_Dataset(Dataset):
     """
     def __init__(self, data_list_path, patch_size=9000, augment=False):
         self.data_list = pd.read_csv(data_list_path)
+        self.data_dir = os.path.dirname(data_list_path)
         self.patch_size = patch_size
         self.augment = augment
 
@@ -29,7 +31,7 @@ class Npz_Mesh_Dataset(Dataset):
         return self.data_list.shape[0]
 
     def __getitem__(self, idx):
-        data = np.load(self.data_list.iloc[idx, 0])
+        data = np.load(os.path.join(self.data_dir, self.data_list.iloc[idx, 0]))
         vertices, ids, normals, labels = data['points'], data['faces'], data['normals'], data['labels'].astype('int32')
 
         if self.augment:

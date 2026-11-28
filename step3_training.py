@@ -61,7 +61,10 @@ if __name__ == '__main__':
                               sampler=train_sampler,
                               num_workers=num_workers,
                               pin_memory=True,
+                              drop_last=True,  # BatchNorm cannot train on a batch of one sample
                               persistent_workers=num_workers > 0)
+    if len(train_loader) == 0:
+        raise ValueError('The training set is smaller than one batch (train_batch_size = {}).'.format(train_batch_size))
     val_loader = DataLoader(dataset=val_dataset,
                             batch_size=val_batch_size,
                             shuffle=False,

@@ -123,7 +123,7 @@ class STNkd(nn.Module):
         
 
 class iMeshSegNet(nn.Module):
-    def __init__(self, num_classes=15, num_channels=15, with_dropout=True, dropout_p=0.5, k1=6, k2=12):
+    def __init__(self, num_classes=17, num_channels=15, with_dropout=True, dropout_p=0.5, k1=6, k2=12):
         super(iMeshSegNet, self).__init__()
         self.num_classes = num_classes
         self.num_channels = num_channels

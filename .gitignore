@@ -4,4 +4,6 @@ inputs/
 outputs/
 data/
 models/
+test/
+losses_metrics_vs_epoch.csv
 slurm-*.out

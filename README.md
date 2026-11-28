@@ -88,8 +88,9 @@ cell data has another name. The output is
     train_list.csv
     val_list.csv</code></pre>
 
-The lists are CSV files with a header line followed by one *.npz* path per line. Each
-*.npz* file holds one mesh:
+The lists are CSV files with a header line followed by one *.npz* path per line, relative to
+the folder of the list. Scans whose labels are outside 0 to 16 (`--num-classes`) are
+rejected. Each *.npz* file holds one mesh:
 
 | Key | Shape | Type | Content |
 |-----|-------|------|---------|
@@ -127,10 +128,18 @@ The training curves can be viewed with
 Step 4 Testing
 --------------
 
-*step4_test.py* tests a trained model on labeled VTP files and displays the metrics (DSC,
-SEN, PPV). The VTP files are labeled in the same way as the raw data of step 1
-(`celldata['Label']`). Please define the checkpoint, the path of the test dataset (variable
-“*mesh_path*”), and the filenames according to your data.
+*step4_test.py* tests a trained model on a folder of labeled VTP files and displays the
+metrics (DSC, SEN, PPV). The VTP files are labeled in the same way as the raw data of step 1
+(`celldata['Label']`) and are downsampled in the same way. Step 1 does not make a test set:
+keep the test scans out of *data/raw* and put them in their own folder, e.g.
+
+<pre><code>data/test/
+    scan_101.vtp
+    scan_102.vtp
+    ...</code></pre>
+
+Please define the checkpoint and the folder of the test scans (variable “*mesh_path*”). The
+predictions and the reports are saved in “*./test*”.
 
 <pre><code>uv run --no-sync python step4_test.py</code></pre>
 
@@ -151,7 +160,8 @@ publication, implemented by the python package [pygco](https://github.com/amuell
 
 Both scripts downsample the mesh if the number of cells is larger than 10,000.
 *step5_predict.py* saves the labels of the downsampled mesh. Step 6 also maps the refined
-labels back to the original resolution (`--upsampling KNN` or `SVM`).
+labels back to the original mesh (`--upsampling KNN` or `SVM`); a mesh with more than
+50,000 cells is first reduced to 50,000 cells.
 
 Previous MeshSegNet model
 -------------------------

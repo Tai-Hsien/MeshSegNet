@@ -1,4 +1,5 @@
 import os
+import glob
 import numpy as np
 import torch
 import torch.nn as nn
@@ -6,18 +7,20 @@ from imeshsegnet import *
 import utils
 import vedo
 import pandas as pd
+from sklearn.neighbors import KNeighborsClassifier
 from losses_and_metrics_for_mesh import *
 
 if __name__ == '__main__':
 
-    torch.cuda.set_device(utils.get_avail_gpu()) # assign which gpu will be used (only linux works)
+    if torch.cuda.is_available():
+        torch.cuda.set_device(utils.get_avail_gpu()) # assign which gpu will be used (only linux works)
 
     model_path = './models'
     model_name = 'iMeshSegNet_17_classes_best.tar'  # need to define
 
-    mesh_path = ''  # need to define
-    test_list = pd.read_csv('test_list.csv')['Test ID'].values  # need to change per dataset
-    test_mesh_filename = 'Sample_0{0}_d.vtp'
+    mesh_path = './data/test'  # need to define; folder of labeled .vtp scans (celldata['Label'], like step 1)
+    test_list = sorted(os.path.basename(f)[:-4] for f in glob.glob(os.path.join(mesh_path, '*.vtp')))
+    test_mesh_filename = '{0}.vtp'
     test_path = './test'
     if not os.path.exists(test_path):
         os.mkdir(test_path)
@@ -52,7 +55,17 @@ if __name__ == '__main__':
             print('Predicting Sample filename: {}'.format(test_mesh_filename.format(i_sample)))
             # read image and label (annotation)
             mesh = vedo.load(os.path.join(mesh_path, test_mesh_filename.format(i_sample)))
-            labels = mesh.celldata['Label'].astype('int32').reshape(-1, 1)  # same classes as step 1
+            labels = mesh.celldata['Label'].astype('int32').reshape(-1)  # same classes as step 1
+
+            # downsampling, same as step 1
+            if mesh.ncells > 10000:
+                mesh_d = mesh.clone()
+                mesh_d.decimate(fraction=10000/mesh.ncells)
+                neigh = KNeighborsClassifier(n_neighbors=3)
+                neigh.fit(mesh.cell_centers().coordinates, labels)
+                labels = neigh.predict(mesh_d.cell_centers().coordinates)
+                mesh = mesh_d
+            labels = labels.reshape(-1, 1)
             predicted_labels = np.zeros(labels.shape)
 
             # move mesh to origin
@@ -101,7 +114,7 @@ if __name__ == '__main__':
             # output predicted labels
             mesh2 = mesh.clone()
             mesh2.celldata['Label'] = predicted_labels
-            vedo.write(mesh2, os.path.join(test_path, 'Sample_{}_predicted.vtp'.format(i_sample)))
+            vedo.write(mesh2, os.path.join(test_path, '{}_predicted.vtp'.format(i_sample)))
 
             # convert predict result and label to one-hot maps
             tensor_predicted_labels = torch.from_numpy(predicted_labels)

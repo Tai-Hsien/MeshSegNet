@@ -10,8 +10,8 @@ import utils
 
 if __name__ == '__main__':
 
-    gpu_id = utils.get_avail_gpu()
-    torch.cuda.set_device(gpu_id) # assign which gpu will be used (only linux works)
+    if torch.cuda.is_available():
+        torch.cuda.set_device(utils.get_avail_gpu()) # assign which gpu will be used (only linux works)
 
     model_path = './models'
     model_name = 'iMeshSegNet_17_classes_best.tar'  # need to define
